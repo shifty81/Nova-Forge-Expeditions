@@ -1,6 +1,6 @@
 # Nova-Forge: Expeditions — Development Roadmap
-### Engine · Tooling · GUI · PCG · AI
-> **Scope**: This roadmap covers only Dev Infrastructure, GUI Systems, Procedural Content Generation (PCG), and AI/AtlasForgeAI integration. No game-specific mechanics, combat, economy, or gameplay features are included until all four pillars are solid and refined.
+### Engine · Tooling · GUI · PCG · AI · Cinematic · Experimental
+> **Scope**: This roadmap covers Dev Infrastructure, GUI Systems, Procedural Content Generation (PCG), AtlasForgeAI integration, Advanced Cinematic & Visualization systems, and Experimental/Futuristic features. No game-specific mechanics, combat, economy, or gameplay features are included until all pillars are solid and refined.
 
 ---
 
@@ -12,18 +12,20 @@
 | GUI System | ✅ Foundation complete | Widget system, DSL, layout solver, ToolingLayer done |
 | PCG | ✅ Foundation complete | WorldGraph, noise, terrain, galaxy done; expansion needed |
 | AI / AtlasForgeAI | 🔧 Partial | HttpLLMBackend, editor assistant done; offline loop not built |
+| Cinematic & Visualization | 📋 Planned | Cinematic preview, heatmaps, collab editing not started |
+| Experimental | 📋 Planned | Multi-agent network, VR/AR, predictive simulation not started |
 
 ---
 
 ## Roadmap Overview
 
 ```
-Phase A  →  Phase B  →  Phase C  →  Phase D  →  Phase E
-  Dev          GUI         PCG       AtlasForgeAI  Integration
- Health      Hardening   Expansion   Agent Loop    & Polish
+Phase A  →  Phase B  →  Phase C  →  Phase D  →  Phase E  →  Phase F  →  Phase G
+  Dev          GUI         PCG       AtlasForgeAI  Integration  Cinematic  Experimental
+ Health      Hardening   Expansion   Agent Loop    & Polish    & Viz Sys    & Futuristic
 ```
 
-All phases can have sub-tasks running in parallel. Phase A must be substantially complete before Phase D. Phases B and C are independent and can advance in parallel.
+All phases can have sub-tasks running in parallel. Phase A must be substantially complete before Phase D. Phases B and C are independent and can advance in parallel. Phases F and G build on all prior phases.
 
 ---
 
@@ -212,6 +214,63 @@ Current widgets: Panel, Button, Text, Image, List, SlotGrid, InputField.
 
 ---
 
+### B8 — Voice-Driven Overlay Commands
+
+- [ ] Extend existing `VoiceCommandRegistry` into the ToolingLayer overlay: speak commands to trigger AI actions, spawn assets, or run PCG
+- [ ] "Show heatmap" / "open profiler" / "generate terrain" — voice triggers mapped to overlay tool commands
+- [ ] Push-to-talk toggle (`Alt+V`) to avoid accidental activation
+- [ ] Voice command visualizer: show recognized phrase and matched intent in overlay before executing
+- [ ] Context-aware grammar: available voice commands adapt to which tool panel is active
+- [ ] Voice command confidence threshold: low-confidence interpretations shown for confirmation before apply
+- [ ] Voice command log panel: scrollable history of recognized commands and their results
+
+---
+
+### B9 — Adaptive Contextual Hotkeys
+
+- [ ] AI observes which operations a developer performs most in each panel — surfaces top-5 as suggested hotkeys
+- [ ] Hotkey conflict resolver: detect collisions across all active tools and propose alternatives
+- [ ] Per-context hotkey profiles: different bindings activate when in WorldGraph editor, Script Console, or Cinematic Editor
+- [ ] Hotkey macro recording: record a sequence of actions and bind it to a single key
+- [ ] `HotkeyActionManager` expansion: all new tools auto-register their actions with the manager on load
+- [ ] Visual hotkey overlay: press `Ctrl+?` to see a context-sensitive cheatsheet of all active bindings
+
+---
+
+### B10 — Procedural Widget & Gizmo Designer
+
+- [ ] **Gizmo authoring DSL**: describe custom 3D manipulator shapes in text format — compiled to GPU draw calls
+- [ ] **Widget composer**: mix-and-match existing widget primitives into new composite widgets via a visual node editor
+- [ ] **Context-sensitive gizmos**: gizmo shape, color, and interaction handles change based on selected entity type (ship hull vs. terrain patch vs. PCG node)
+- [ ] **Interactive handles**: custom drag handles on gizmos feed directly into PCG parameters (drag a noise amplitude handle to tune terrain)
+- [ ] Gizmo LOD: simplify manipulator geometry as camera moves away, ensuring always-visible but never distracting
+- [ ] Gizmo replay: all gizmo interactions recorded as semantic events and replayable deterministically
+- [ ] Gizmo library panel: browseable palette of built-in and project-specific gizmos
+
+---
+
+### B11 — Procedural HUD & Game UI Generation
+
+- [ ] **AI HUD generator**: describe the HUD in plain English → AtlasForgeAI produces a complete Widget DSL layout
+- [ ] **Role-based HUD variants**: generate HUD layouts per player role (pilot HUD vs. FPS HUD vs. fleet commander view) from a single description
+- [ ] **Live HUD prototyping**: WYSIWYG HUD editor with drag-and-drop widget placement, bound to live ECS data
+- [ ] **HUD animation authoring**: define transition animations for HUD elements (power-up flash, damage vignette) as data curves
+- [ ] **HUD test harness**: simulate ECS state changes (shield hit, capacitor drain) and watch HUD respond in the editor without running the game
+- [ ] **HUD export**: serialize authored HUD to Widget DSL file; auto-validated against widget schema before save
+
+---
+
+### B12 — AI-Assisted UI Skinning
+
+- [ ] **Theme generation from description**: "dark industrial sci-fi with blue accents" → AtlasForgeAI generates a complete `theme.atlas.json`
+- [ ] **Color harmony engine**: AI enforces WCAG contrast ratios and color harmony rules on all generated palettes
+- [ ] **Style transfer**: upload a reference image (screenshot, concept art) → AI extracts color palette and applies it as a theme
+- [ ] **Accessibility audit**: AI scans current theme for contrast failures, small touch targets, and missing focus indicators
+- [ ] **Per-faction UI skins**: generate distinct UI skin variants per faction tag (Terran, Pirate, Corporate) from a base theme
+- [ ] **Skin preview grid**: show all registered theme variants side-by-side in Theme Editor for quick comparison
+
+---
+
 ## Phase C — PCG System Expansion & Refinement
 
 > **Goal**: A comprehensive, data-driven, AI-augmentable PCG pipeline covering worlds, interiors, props, materials, sounds, and placement. All generators are graph-based, seed-reproducible, and hot-reloadable.
@@ -307,12 +366,47 @@ Current nodes: Perlin, FBM, HeightField, DensityField, Mask, cube-sphere, voxel,
 - [ ] **SoundGraph expansion**: new nodes for granular synthesis, spectral morphing, and convolution reverb
 - [ ] **Environment audio system**: ambient soundscape generated from biome mask (wind strength from height + slope, water from moisture)
 - [ ] **Procedural music graph**: melody/harmony/rhythm composed from game state parameters
+- [ ] **Adaptive music system**: music graph responds to engine state variables (tension level, location type, time of day) — no game logic, pure engine signal
 - [ ] SoundGraph debugger: oscilloscope and frequency spectrum visualization per node
 - [ ] Offline audio baking: pre-render common SoundGraph states to `.wav` cache for runtime performance
 
 ---
 
-## Phase D — AtlasForgeAI Integration
+### C8 — Procedural Ecosystem & Weather Systems
+
+> These are PCG *generator frameworks* — not gameplay systems. They produce data consumed by the renderer and world simulation.
+
+- [ ] **Weather graph**: DAG-based weather pattern generator with nodes for pressure, humidity, temperature, wind — all seeded and deterministic
+- [ ] **Precipitation node**: derive rain, snow, or fog from weather graph outputs; output density field consumed by renderer
+- [ ] **Day/night cycle graph**: parameterized sky color, sun angle, and ambient light curves; authored as spline nodes
+- [ ] **Seasonal variation**: blend weather and biome parameters across a configurable seasonal cycle
+- [ ] **Flora placement graph**: scatter trees, grass, and undergrowth using biome mask + slope + moisture constraints
+- [ ] **Fauna rig placement**: place animated rig anchor points (roost, burrow, patrol path) via scatter graph; no AI behavior — data only
+- [ ] **Environmental LOD**: flora and weather details streamed at distance using the existing WorldStreamer infrastructure
+- [ ] **Ecosystem balance validator**: check that flora density, water sources, and elevation form a plausible ecosystem; surface warnings in PCG debugger
+
+---
+
+### C9 — Drag-and-Drop Procedural Placement UI
+
+- [ ] **AI-generated object placement in viewport**: drag a WorldGraph-generated prop (console, container, antenna) from Asset Palette into the 3D viewport
+- [ ] **Smart snap**: AI calculates valid placement surface (floor, wall, ceiling) and snaps automatically; no manual axis alignment
+- [ ] **Scale inference**: AI infers appropriate scale from surrounding context (a console next to a door vs. a cargo bay)
+- [ ] **Placement rule learning**: after several manual placements, AI extracts a placement rule and offers to add it to the WorldGraph scatter node
+- [ ] **Override stack**: AI-placed objects are delta overrides on top of PCG seeds — PCG regeneration preserves manual placements
+- [ ] **Multi-object placement**: box-select a region, choose a prop category, AI scatters them respecting clearance rules
+- [ ] **Undo/redo**: all drag-and-drop placements go through `EditorCommandBus`; fully undoable
+
+---
+
+### C10 — Cross-Project PCG Knowledge Transfer
+
+- [ ] **PCG style library**: save a WorldGraph configuration (biome rules, scatter params, noise stack) as a named style asset
+- [ ] **Cross-project import**: load a style asset from a different Atlas project into the current WorldGraph palette
+- [ ] **Style diff viewer**: compare two PCG style presets side-by-side to understand differences
+- [ ] **Improvement propagation**: if a style is refined in one project, a merge-request style notification appears in other projects that use it
+- [ ] **AI style tagging**: AI automatically tags saved styles (e.g., "volcanic", "arctic", "urban ruins") for searchability
+- [ ] **Community-compatible export**: styles export as standalone `.atlas.pcgstyle` files — shareable without the full project
 
 > **Goal**: Build the full AtlasForgeAI agent loop — an offline-first, multi-language, media-capable AI development assistant that integrates with the engine's ToolingLayer, PCG systems, and build pipeline. This is the "Swiss-army knife" dev system described in the Chat.md planning sessions.
 
@@ -477,7 +571,77 @@ The in-engine, always-accessible AI development interface.
 
 ---
 
-## Phase E — Cross-System Integration & Refinement
+### D10 — Multi-Agent Collaboration System
+
+> Multiple AtlasForgeAI agent instances working in parallel on different concerns — code, assets, PCG, QA — with a shared coordination layer.
+
+- [ ] **Agent registry**: named agents with designated domains (`code-agent`, `pcg-agent`, `asset-agent`, `qa-agent`)
+- [ ] **Task dispatcher**: break a developer prompt into sub-tasks and route each to the appropriate agent
+- [ ] **Inter-agent message bus**: agents communicate structured results (e.g., pcg-agent completes biome → asset-agent picks up to generate matching textures)
+- [ ] **Conflict negotiation**: if two agents propose changes to the same file, the orchestrator presents a merge UI for developer resolution
+- [ ] **Multi-Agent Collaboration Panel** (ToolingLayer tool): visualize all active agents, their current tasks, progress bars, and pending diffs
+- [ ] **Parallel approval queue**: developer sees all pending agent diffs in one queue; approve, reject, or defer individually
+- [ ] **Agent memory sharing**: completed tasks are stored in a shared session memory; new agents start informed
+- [ ] **Agent priority tiers**: critical path agents (code, build) get higher token budgets and faster model tiers
+- [ ] **Agent simulation mode**: run agents against a snapshot of the project (not live files) for dry-run planning
+
+---
+
+### D11 — Interactive AI Debugger
+
+- [ ] **Step-through execution**: AI can walk through FlowGraph or WorldGraph execution tick-by-tick, explaining each node's decision
+- [ ] **Natural language trace**: at each step, AI narrates "Node X fired because Y exceeded threshold Z" — in plain English
+- [ ] **Breakpoint injection**: developer sets a breakpoint on a node or ECS system; AI pauses and explains the state at that point
+- [ ] **Anomaly detection**: AI flags unusual patterns in replay data (unexpected state transitions, outlier tick durations) and explains them
+- [ ] **"Why did this happen?" prompt**: select any entity or event in replay → AI explains the causal chain in plain English
+- [ ] **Fix suggestion mode**: after explaining a bug, AI proposes a diff to fix it — same approval-gate workflow as all other AI actions
+- [ ] **Debugger panel integration**: Interactive AI Debugger lives as a ToolingLayer panel alongside the existing Graph Editor and Replay Timeline
+
+---
+
+### D12 — Voice Command Macros & Learning
+
+- [ ] **Macro recording**: say "start recording macro", perform actions, say "end macro" — AI captures the sequence as a named command
+- [ ] **Macro playback**: say the macro name → AI replays the entire action sequence
+- [ ] **Macro editor**: review, rename, delete, and reorder recorded macros in a ToolingLayer panel
+- [ ] **AI macro suggestion**: after 3+ repetitions of the same action sequence, AI offers to create a macro automatically
+- [ ] **Voice shorthand learning**: user can say "that thing I always do after building" → AI searches macro history for best match
+- [ ] **Cross-session macro persistence**: macros saved to `workspace/macros.atlas.json`; loaded on editor start
+- [ ] **Macro version control**: macros tracked in git alongside project files; diffs show what changed in a macro
+
+---
+
+### D13 — Dynamic Tutorial Recording & Playback
+
+- [ ] **Tutorial recorder**: developer presses "Record Tutorial", performs a workflow → system captures every UI interaction and AI prompt as an annotated replay
+- [ ] **Narration layer**: developer can add spoken or text annotations at any point in the recording
+- [ ] **AI tutorial generation**: given a feature name ("WorldGraph biome authoring"), AI generates a step-by-step interactive tutorial using engine docs and recorded examples
+- [ ] **Adaptive skill level**: tutorial system detects developer familiarity (beginner / intermediate / advanced) from prior interaction patterns and adjusts depth
+- [ ] **Tutorial player panel**: plays back recorded tutorials inside the editor with overlay highlights and tooltips
+- [ ] **Task automation**: if a tutorial step is purely mechanical (e.g., "click the Compile button"), AI offers to execute it on behalf of the developer
+- [ ] **Tutorial library**: browseable catalogue of all recorded and AI-generated tutorials, searchable by topic and difficulty
+
+---
+
+### D14 — AI Personality Profiles
+
+- [ ] **Personality system**: configurable AI voice, tone, and interaction style — stored in `workspace/ai_personality.atlas.json`
+- [ ] **Built-in profiles**: `Mentor` (patient, explanatory), `Partner` (collaborative, terse), `Technical` (precise, code-first), `Creative` (generative, suggestive)
+- [ ] **Custom profile authoring**: developer defines a custom personality with tone adjectives, verbosity level, humor allowance, and preferred explanation depth
+- [ ] **Context-adaptive tone**: AI shifts from creative to technical automatically when switching from PCG authoring to debugging a compiler error
+- [ ] **Per-project personality**: each `.atlas` project file can specify a default personality for team consistency
+- [ ] **Personality preview**: test a profile by sending a sample prompt and seeing the response style before committing
+
+---
+
+### D15 — Cross-Project Knowledge Base
+
+- [ ] **Project knowledge index**: each project auto-indexes its own docs, schemas, graph nodes, and source headers into a local vector store
+- [ ] **Cross-project import**: explicitly allow the AI to query knowledge from a second project's index (e.g., "use the PCG patterns from AtlasForge")
+- [ ] **Knowledge delta tracking**: when a source project updates, the importing project gets a notification to re-sync relevant knowledge
+- [ ] **Privacy boundary**: cross-project knowledge transfer requires explicit per-project opt-in; no passive data leakage
+- [ ] **Portable knowledge packages**: export a project's AI knowledge base as a `.atlas.knowledgepack` file — distributable alongside code
+- [ ] **Knowledge provenance**: every AI suggestion shows which knowledge source it was drawn from (inline citation)
 
 > **Goal**: All four pillars (Dev, GUI, PCG, AI) working together as a seamless whole. The developer experience is fast, predictable, and delightful.
 
@@ -542,6 +706,185 @@ The in-engine, always-accessible AI development interface.
 
 ---
 
+### E7 — Real-Time Performance & Optimization AI
+
+- [ ] **Frame budget monitor**: AI continuously watches frame times per system; alerts when a system exceeds its budget
+- [ ] **Automated profiling suggestions**: "Your TerrainMeshGenerator is taking 8ms — here are three optimizations to try" with diff proposals
+- [ ] **Shader complexity analysis**: AI reads shader source and estimates instruction count, texture fetches, and branching; flags expensive patterns
+- [ ] **Asset over-budget detection**: AI scans scene and flags assets exceeding polycount, texture memory, or draw-call budgets
+- [ ] **Memory fragmentation detector**: AI monitors allocator state over time and suggests defragmentation or pool resizing
+- [ ] **CI performance gate**: automated performance regression test — fail build if any tracked metric degrades beyond threshold
+- [ ] **Optimization history log**: all AI-suggested optimizations and their measured impact stored in `workspace/perf_history.atlas.json`
+
+---
+
+### E8 — Integrated Asset Library
+
+- [ ] **Local asset library panel**: searchable, tagged catalogue of all assets across all registered projects
+- [ ] **Category browser**: browse by type (Mesh / Texture / Sound / Graph / Schema / Layout), tag, and project source
+- [ ] **Thumbnail preview**: async-generated thumbnails for all mesh and texture assets; cached to disk
+- [ ] **In-library testing**: preview a WorldGraph node library or SoundGraph snippet directly from the library panel before placing
+- [ ] **AI-driven tagging**: AI auto-generates searchable tags for every asset based on its schema and content
+- [ ] **Usage tracking**: each asset reports where it is referenced in the current project
+- [ ] **Dependency graph viewer**: show the full dependency chain of any asset (what does this asset depend on? what depends on it?)
+- [ ] **Version snapshots**: each asset stores a hash-tagged version history; roll back to any prior state
+- [ ] **Cross-project asset sharing**: explicitly flag assets as shareable; other projects can reference them by URI
+
+---
+
+### E9 — Offline Simulation Lab
+
+- [ ] **Headless world sim**: run a WorldGraph + scatter + weather + ecosystem simulation for N ticks without the renderer or game logic
+- [ ] **Fleet behavior test harness**: spin up N AI-driven entities with scripted goals; observe emergent movement and resource contention — all offline
+- [ ] **PCG stress tester**: generate 1000 unique seeds, render thumbnails, flag seeds with artifacts or invariant violations
+- [ ] **Performance sim**: run the engine at 10× speed with all systems active and log per-system timing distribution
+- [ ] **Comparison runs**: run the same simulation with two different parameter sets; diff the outputs automatically
+- [ ] **Sim lab panel** (ToolingLayer): configure sim runs, track active simulations, browse results, and link back to the causal PCG graphs
+- [ ] **Export sim results**: simulation outputs (heatmaps, entity traces, metric CSVs) exported to `workspace/sim_results/`
+
+---
+
+### E10 — Predictive Behavior Modeling (Dev Tool)
+
+- [ ] **Interaction predictor**: given a WorldGraph configuration, AI predicts where generated areas will see the most traversal (based on prior replay data)
+- [ ] **Hotspot map**: generate a predicted-interest heat map for a world before any player has touched it
+- [ ] **Parameter sensitivity analysis**: "which WorldGraph parameter has the most impact on traversal patterns?" — AI sweeps and reports
+- [ ] **Bottleneck predictor**: given a corridor layout from Interior PCG, AI identifies likely flow bottlenecks based on geometry
+- [ ] **Developer use modeling**: AI tracks which editor panels and tools each developer uses most → personalizes suggested workflows
+- [ ] **All results are dev-tooling only**: no predicted data modifies runtime behavior; purely an authoring aid
+
+---
+
+### E11 — Real-Time Visual Debugging & Heatmaps
+
+- [ ] **System activity heatmap overlay**: in viewport, colorize world regions by the density of ECS system ticks (hot = many systems active)
+- [ ] **PCG event frequency map**: visualize how often each WorldGraph node was evaluated per region over the last N frames
+- [ ] **Broken asset highlighter**: AI scans the scene each tick and outlines entities with missing components, null references, or schema violations
+- [ ] **Misaligned component detector**: flag entities where transform hierarchy is inconsistent with physics body
+- [ ] **Memory usage overlay**: viewport tint showing memory cost per streaming chunk (red = near budget, green = safe)
+- [ ] **AI agent activity overlay**: visualize all active AtlasForgeAI tool calls as floating indicators above their affected entities
+- [ ] **Heatmap recording**: record heatmap state over time as a replay layer; scrub through the Replay Timeline to see heatmaps evolve
+- [ ] **Custom overlay API**: `DiagnosticsOverlay::RegisterHeatmapLayer(name, samplerFn)` — any subsystem can contribute a custom heatmap layer
+
+---
+
+## Phase F — Advanced Cinematic & Visualization Systems
+
+> **Goal**: Give developers and artists a cinematic preview and real-time editing experience directly inside the engine — no external software needed. Procedural cinematics, live camera tools, and multiplayer-safe collaborative editing.
+
+### F1 — Integrated Cinematic Preview
+
+- [ ] **Cinematic Editor panel** (ToolingLayer tool): a timeline-based camera sequence editor embedded in the engine
+- [ ] **Camera track authoring**: add keyframes for position, rotation, FOV, and focus distance on a scrub timeline
+- [ ] **Live preview mode**: press Play in the Cinematic Editor to fly the authored camera path through the current world scene
+- [ ] **Multiple camera modes**: static cut, dolly, orbit, crane, handheld shake — all authored as curve data
+- [ ] **Lighting preview**: toggle between day/night or weather states in the Cinematic Editor without affecting game state
+- [ ] **Depth-of-field authoring**: set focus distance and bokeh radius per keyframe; preview in real-time
+- [ ] **Cinematic export**: render the authored camera sequence to an image sequence or `.mp4` (headless, no game running)
+- [ ] **AI framing suggestions**: AtlasForgeAI analyzes the scene and suggests camera positions that frame the most interesting elements
+- [ ] **AI dynamic story beats**: given a sequence of world events (from replay data), AI proposes a matching cinematic cut sequence
+
+---
+
+### F2 — Autonomous Procedural Cinematics
+
+> The engine can self-direct cinematic sequences from world events — no hand-authored keyframes required.
+
+- [ ] **Event-to-camera mapper**: define rules like "explosion event → cut to wide shot of source position + 2s hold + dolly in"
+- [ ] **Cinematic grammar system**: library of shot types (establishing, reaction, cutaway, reveal) expressed as parameterizable templates
+- [ ] **AI director mode**: AI selects shot type, camera angle, and duration based on current world state and prior shots (avoids repetition)
+- [ ] **Narrative pacing engine**: AI adjusts cut frequency based on action intensity — calmer exploration = long, slow shots; intense sequences = rapid cuts
+- [ ] **Cinematics replay layer**: all auto-directed cinematics recorded as a replay layer; scrub and review in Replay Timeline
+- [ ] **Procedural subtitle/caption system**: AI generates contextual caption overlays for automated sequences (location names, event descriptions)
+
+---
+
+### F3 — Real-Time Collaborative Editing
+
+- [ ] **Shared editor session**: two or more developers open the same project; changes propagate in real-time over the existing NetContext
+- [ ] **Presence indicators**: each connected developer has a colored cursor/outline visible to peers in the viewport and graph editors
+- [ ] **Role locks**: developer A edits WorldGraph; developer B edits an asset — AI detects and warns about cross-boundary dependencies
+- [ ] **Live diff feed**: a feed panel shows all in-flight changes from peers as they type, before they are committed
+- [ ] **Co-author commit attribution**: all applied changes record which developer authored them in the edit history
+- [ ] **Session replay**: the full collaborative editing session can be replayed to reconstruct who changed what and when
+- [ ] **AI mediator**: when two developers edit conflicting parts of the same graph, AI proposes a merge and explains the conflict in plain English
+- [ ] **Observer mode**: QA or team lead joins as read-only observer; sees all developer cursors and live diffs without write access
+
+---
+
+### F4 — Interactive AI Debugger (Full Integration)
+
+- [ ] **Step-through any graph**: developer selects a WorldGraph, FlowGraph, or BehaviorGraph node and steps through execution with AI narration
+- [ ] **Live value inspection**: hover over any port in any graph type and see the current computed value as a tooltip
+- [ ] **Causal chain explorer**: click any entity property in ECS Inspector → AI traces the full chain of systems and events that produced the current value
+- [ ] **Anomaly alerts**: AI runs a background monitor and surfaces warnings like "this entity's capacitor is recharging at 0 when it should be positive"
+- [ ] **Fix-and-verify loop**: AI proposes a diff for each flagged anomaly; after apply, immediately re-runs the affected graph and reports if the anomaly cleared
+- [ ] **Regression watch**: mark a value or condition as a "watch point"; AI alerts if it changes unexpectedly across builds
+
+---
+
+## Phase G — Experimental & Futuristic Systems
+
+> **Goal**: Push the boundaries of what a game engine dev environment can do. These are high-value, long-horizon features that become achievable once Phases A–F are complete. They are planned now to ensure the architecture can support them.
+
+### G1 — Multi-Agent AI Development Network
+
+- [ ] **Agent swarm coordinator**: orchestrate 5–20 parallel AI agents across code writing, asset generation, PCG tuning, QA testing, and documentation
+- [ ] **Negotiation protocol**: agents bid on tasks based on their specialization and current load; coordinator assigns optimally
+- [ ] **Conflict graph**: real-time visualization of which agents are working on dependent files; highlight risk of merge conflicts before they happen
+- [ ] **Agent progress dashboard**: see every agent's current task, estimated completion, token budget used, and pending approvals in one panel
+- [ ] **Human-in-the-loop throttle**: developer can set a "max approvals per minute" to prevent getting overwhelmed by simultaneous agent proposals
+- [ ] **Agent specialization training**: each agent accumulates a session history of approved changes; its future suggestions become more relevant over time
+- [ ] **Parallel build pipeline**: code-agent writes a system; build-agent compiles immediately; qa-agent writes the test — all three work in sequence without developer intervention between them
+
+---
+
+### G2 — Predictive Procedural Universe Simulation
+
+- [ ] **Offline universe sim**: run an entire galaxy (star systems, weather, flora, faction placement data) through a simulated time span (days, seasons, years) without a renderer
+- [ ] **Emergent world evolution**: PCG parameters evolve over simulated time (biomes shift, regions get more or less resource-rich) based on simple rules
+- [ ] **Snapshot browser**: navigate to any point in the simulated time range and inspect the world state; load any snapshot as the starting seed for a playable session
+- [ ] **Divergence explorer**: run the same universe from the same seed with two different PCG rule sets; visualize where they diverge over time
+- [ ] **Influence propagation model**: simulate how a single changed PCG parameter (e.g., rainfall increases) ripples through flora density, NPC anchor placement density, and ore vein distribution over time
+- [ ] **Export to playable**: at any simulated time point, export the world state as a full set of `.atlasb` chunk files ready to load in the engine
+
+---
+
+### G3 — VR/AR Procedural Editing Mode
+
+- [ ] **VR editing framework**: engine can output a stereoscopic render to a VR headset (OpenXR integration)
+- [ ] **6DOF controller gizmos**: grab, scale, and rotate PCG scatter objects with physical hand controllers; full undo/redo support
+- [ ] **Immersive WorldGraph editor**: float WorldGraph nodes in 3D space; connect ports with virtual cables
+- [ ] **AR overlay mode**: connect to a running build on a separate screen; AR overlay shows live ECS entity bounds and component values floating above the rendered world
+- [ ] **AI assistant in VR**: AtlasForgeAI overlay visible as a floating panel in VR space; speak prompts via voice, see responses as floating text
+- [ ] **Collaborative VR session**: multiple developers in the same VR editing space; see each other's avatars and edits in real time
+- [ ] **Fallback graceful**: VR/AR is a fully optional rendering path; if no headset is present, all editing tools remain available in standard flat mode
+
+---
+
+### G4 — Autonomous Content Publishing & Demo Generation
+
+- [ ] **Demo builder**: AI assembles a playable demo build by selecting representative world seeds, configuring a starting scenario, and packaging a self-contained executable
+- [ ] **Trailer generator**: AI scripts a cinematic sequence (using Phase F tools) covering key world visuals, runs it through the cinematic exporter, and packages the video
+- [ ] **Automated release notes**: AI reads recent commit history and approved AI action logs; generates a human-readable changelog
+- [ ] **Screenshot bot**: headless mode renders a set of curated camera positions across the world and selects the visually richest frames
+- [ ] **Showcase packaging**: AI bundles demo executable + trailer + screenshots + changelog into a release folder structure ready for distribution
+- [ ] **CI integration**: `atlas publish --demo` triggers the full pipeline — build, world gen, cinematic render, packaging — in a single CI job
+
+---
+
+### G5 — Adaptive AI Personality & Developer Modeling
+
+- [ ] **Developer behavior model**: AI builds a per-developer usage profile (preferred tools, common workflows, frequent errors, response-to-suggestion rate)
+- [ ] **Proactive suggestions**: based on the developer model, AI surfaces relevant suggestions before being asked ("you usually run the shader debugger after material changes — want me to open it?")
+- [ ] **Adaptive verbosity**: AI shortens explanations for operations the developer has performed many times; expands explanations for new patterns
+- [ ] **Error anticipation**: AI detects when a developer is about to make a change that historically causes build failures and warns proactively
+- [ ] **Mood-responsive tone**: AI detects repeated rejections of suggestions and shifts to a shorter, less prescriptive style; detects exploratory sessions and becomes more generative
+- [ ] **Team profile aggregation**: developer models from all team members inform shared style defaults (e.g., if the whole team favors a particular naming pattern, AI adopts it for codegen)
+- [ ] **Privacy controls**: developer can view, edit, and delete their behavior model at any time; model never leaves local storage
+
+---
+
 ## Phase Sequencing Summary
 
 ```
@@ -551,22 +894,43 @@ NOW
 ├── A2  Build consolidation
 ├── A3  Test infrastructure
 ├── A4  Developer tooling
+├── A5  Documentation & conventions
 │
-├── B1–B4  Widget expansion + layout + themes     ← parallel with C
-├── C1–C4  PCG node library + interiors + placement  ← parallel with B
+├── B1–B7   Widget set + layout + themes + DSL + panels + CI GUI    ← parallel with C
+├── B8–B12  Voice overlay, hotkeys, gizmos, HUD gen, AI skinning     ← parallel with C
 │
-├── D1  Offline LLM integration
-├── D2  Agent core loop
-├── D3  Tool system
-├── D4  Code generation pipeline
-├── D5  Dev Mode overlay
-├── D6  Multi-language runners
-├── D7  Media generation pipelines          ← can overlap with D4–D5
-├── D8  PCG + AI coupling
+├── C1–C7   PCG nodes + materials + interiors + placement + perf + audio  ← parallel with B
+├── C8–C10  Ecosystem/weather PCG, drag-drop placement, cross-project PCG
 │
-├── E1–E3  AI+GUI, AI+PCG, offline workflow
-├── E4  Collaboration hooks
-└── E5–E6  Performance + final hardening
+├── D1   Offline LLM integration
+├── D2   Agent core loop
+├── D3   Tool system
+├── D4   Code generation pipeline
+├── D5   Dev Mode overlay
+├── D6   Multi-language runners
+├── D7   Media generation pipelines          ← can overlap D4–D5
+├── D8   PCG + AI coupling
+├── D9   Safety & quality gates
+├── D10  Multi-agent system                   ← can overlap D7–D9
+├── D11  Interactive AI debugger
+├── D12  Voice macros & learning
+├── D13  Tutorial recording & playback
+├── D14  AI personality profiles
+├── D15  Cross-project knowledge base
+│
+├── E1–E6   AI+GUI, AI+PCG, offline workflow, collab, perf, hardening
+├── E7–E11  Performance AI, asset library, sim lab, predictive modeling, heatmaps
+│
+├── F1  Integrated cinematic preview
+├── F2  Autonomous procedural cinematics
+├── F3  Real-time collaborative editing
+├── F4  Interactive AI debugger (full integration)
+│
+├── G1  Multi-agent AI development network     ← advanced, long-horizon
+├── G2  Predictive procedural universe simulation
+├── G3  VR/AR procedural editing mode
+├── G4  Autonomous content publishing & demo generation
+└── G5  Adaptive AI personality & developer modeling
 │
 GAME FEATURES BEGIN HERE
 ```
@@ -578,17 +942,33 @@ GAME FEATURES BEGIN HERE
 | Milestone | Criteria | Target |
 |-----------|----------|--------|
 | **M1: Clean Foundation** | Phase A complete. All 164 systems use template bases. `GameSession` decomposed. Build < 3 min. | After Phase A |
-| **M2: Full GUI Toolkit** | Phase B complete. All planned widgets exist. Theme editor live. DSL round-trip clean. | After Phase B |
-| **M3: PCG Studio** | Phase C complete. WorldGraph debugger live. Interior PCG working. Placement learner active. | After Phase C |
-| **M4: AtlasForgeAI Online** | Phase D complete. Offline LLM running. Agent loop active. Tool system sandboxed. Dev Mode overlay visible. | After Phase D |
-| **M5: Integrated Dev Platform** | Phase E complete. Full offline workflow. AI + GUI + PCG all interconnected. Certified build passing. | After Phase E |
-| **Game Features** | All five milestones met. No more infra debt. Begin adding vertical gameplay. | After M5 |
+| **M2: Full GUI Toolkit** | Phase B complete. All widgets exist. Theme editor live. Voice overlay active. Gizmo designer working. | After Phase B |
+| **M3: PCG Studio** | Phase C complete. WorldGraph debugger live. Interior + ecosystem PCG working. Drag-drop placement active. Cross-project styles importable. | After Phase C |
+| **M4: AtlasForgeAI Online** | Phase D complete. Offline LLM running. Multi-agent system active. Voice macros + tutorial recorder live. Dev Mode overlay visible. | After Phase D |
+| **M5: Integrated Dev Platform** | Phase E complete. Full offline workflow. AI + GUI + PCG interconnected. Heatmaps live. Sim lab operational. Certified build passing. | After Phase E |
+| **M6: Cinematic & Collab** | Phase F complete. Cinematic editor live. Procedural cinematics working. Real-time collaborative editing stable. | After Phase F |
+| **M7: Next-Level Platform** | Phase G substantially complete. Multi-agent swarm operational. Universe sim browseable. VR editing mode functional. Demo builder automated. | After Phase G |
+| **Game Features** | All milestones met. No infra debt. Begin adding vertical gameplay. | After M7 |
+
+---
+
+## Feature Summary
+
+| Phase | Area | Key Features |
+|-------|------|-------------|
+| A | Dev Infrastructure | Spaghetti cleanup, build consolidation, test infra, dev CLI tooling, docs |
+| B | GUI | 13 new widgets, layout solver hardening, theme engine, animations, DSL enhancements, panel refinements, voice overlay, adaptive hotkeys, gizmo designer, HUD gen, AI skinning |
+| C | PCG | 15 new WorldGraph nodes, material PCG, interior PCG, ecosystem/weather, drag-drop placement, placement learning, PCG perf + debugging, audio PCG, cross-project styles |
+| D | AtlasForgeAI | Offline LLM (Ollama/llama.cpp), agent core loop, tool system, code gen, Dev Mode overlay, multi-language runners, media pipelines, PCG-AI coupling, multi-agent, AI debugger, voice macros, tutorial recorder, AI personality, cross-project KB |
+| E | Integration | AI+GUI authoring, AI+PCG authoring, full offline workflow, live collab, perf AI, asset library, sim lab, predictive modeling, heatmaps |
+| F | Cinematic & Viz | Cinematic preview editor, procedural cinematics, real-time collab editing, integrated AI debugger |
+| G | Experimental | Multi-agent network, universe simulation, VR/AR editing, autonomous demo gen, adaptive AI personality |
 
 ---
 
 ## What This Roadmap Intentionally Excludes
 
-The following will be addressed **after** all five milestones are met:
+The following will be addressed **after** all milestones are met:
 - Ship combat mechanics
 - Economy and trading systems
 - FPS boarding gameplay
@@ -599,7 +979,7 @@ The following will be addressed **after** all five milestones are met:
 - Multiplayer matchmaking
 - Any other gameplay feature from `GAME_DESIGN_VISION.md`
 
-> The engine, tools, and AI systems must be production-solid before game features are built on top of them. Building game systems on shaky infrastructure creates double the work.
+> The engine, tools, AI systems, and cinematic pipeline must be production-solid before game features are built on top of them. Building game systems on shaky infrastructure creates double the work.
 
 ---
 
