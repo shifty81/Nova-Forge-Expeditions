@@ -272,5 +272,72 @@ std::string FleetMoraleSystem::getFleetId(const std::string& entity_id) const {
     return comp ? comp->fleet_id : std::string();
 }
 
+// ── FleetMorale convenience API ───────────────────────────────────────────
+
+static components::FleetMorale* ensureFleetMorale(ecs::World* world,
+                                                   const std::string& entity_id) {
+    auto* entity = world->getEntity(entity_id);
+    if (!entity) return nullptr;
+    auto* morale = entity->getComponent<components::FleetMorale>();
+    if (!morale) {
+        entity->addComponent(std::make_unique<components::FleetMorale>());
+        morale = entity->getComponent<components::FleetMorale>();
+    }
+    return morale;
+}
+
+bool FleetMoraleSystem::recordWin(const std::string& entity_id) {
+    auto* morale = ensureFleetMorale(world_, entity_id);
+    if (!morale) return false;
+    morale->wins++;
+    morale->updateMoraleScore();
+    return true;
+}
+
+bool FleetMoraleSystem::recordLoss(const std::string& entity_id) {
+    auto* morale = ensureFleetMorale(world_, entity_id);
+    if (!morale) return false;
+    morale->losses++;
+    morale->updateMoraleScore();
+    return true;
+}
+
+bool FleetMoraleSystem::recordShipLost(const std::string& entity_id) {
+    auto* morale = ensureFleetMorale(world_, entity_id);
+    if (!morale) return false;
+    morale->ships_lost++;
+    morale->updateMoraleScore();
+    return true;
+}
+
+bool FleetMoraleSystem::recordSavedByPlayer(const std::string& entity_id) {
+    auto* morale = ensureFleetMorale(world_, entity_id);
+    if (!morale) return false;
+    morale->times_saved_by_player++;
+    morale->updateMoraleScore();
+    return true;
+}
+
+bool FleetMoraleSystem::recordMissionTogether(const std::string& entity_id) {
+    auto* morale = ensureFleetMorale(world_, entity_id);
+    if (!morale) return false;
+    morale->missions_together++;
+    return true;
+}
+
+float FleetMoraleSystem::getMoraleScore(const std::string& entity_id) const {
+    auto* entity = world_->getEntity(entity_id);
+    if (!entity) return 0.0f;
+    auto* morale = entity->getComponent<components::FleetMorale>();
+    return morale ? morale->morale_score : 0.0f;
+}
+
+std::string FleetMoraleSystem::getMoraleState(const std::string& entity_id) const {
+    auto* entity = world_->getEntity(entity_id);
+    if (!entity) return "Steady";
+    auto* morale = entity->getComponent<components::FleetMorale>();
+    return morale ? morale->morale_state : "Steady";
+}
+
 } // namespace systems
 } // namespace atlas

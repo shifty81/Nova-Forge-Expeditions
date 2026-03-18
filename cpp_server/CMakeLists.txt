@@ -631,31 +631,11 @@ message(STATUS "")
 
 # Test executable (split per-domain test files)
 if(BUILD_TESTS)
+    file(GLOB TEST_SOURCES "tests/test_*.cpp")
+    # Exclude the single-test runner template (requires NOVAFORGE_TEST_FUNC macro)
+    list(REMOVE_ITEM TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_single_main.cpp")
     add_executable(test_systems
-        tests/test_main.cpp
-        tests/test_character.cpp
-        tests/test_chat.cpp
-        tests/test_combat.cpp
-        tests/test_core_systems.cpp
-        tests/test_data.cpp
-        tests/test_economy.cpp
-        tests/test_fleet.cpp
-        tests/test_fps.cpp
-        tests/test_infrastructure.cpp
-        tests/test_inventory.cpp
-        tests/test_misc.cpp
-        tests/test_mission.cpp
-        tests/test_movement.cpp
-        tests/test_navigation.cpp
-        tests/test_pcg.cpp
-        tests/test_persistence.cpp
-        tests/test_social.cpp
-        tests/test_special_systems.cpp
-        tests/test_station.cpp
-        tests/test_targeting.cpp
-        tests/test_tournament.cpp
-        tests/test_ui_tools.cpp
-        tests/test_wormhole.cpp
+        ${TEST_SOURCES}
         ${CORE_SOURCES}
     )
     target_include_directories(test_systems PRIVATE

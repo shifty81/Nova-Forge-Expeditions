@@ -3,6 +3,7 @@
 
 #include "ecs/single_component_system.h"
 #include "components/social_components.h"
+#include "components/fleet_components.h"
 #include <string>
 
 namespace atlas {
@@ -52,6 +53,14 @@ public:
     int         getSavesByPlayer(const std::string& entity_id) const;
     int         getTotalArcUpdates(const std::string& entity_id) const;
     std::string getCaptainId(const std::string& entity_id) const;
+
+    // Convenience aliases — operate on EmotionalArcState (create if absent) or EmotionalState
+    bool  onCombatVictory(const std::string& entity_id);
+    bool  onCombatDefeat(const std::string& entity_id);
+    bool  onRest(const std::string& entity_id);
+    bool  onPlayerTrust(const std::string& entity_id);
+    bool  onPlayerBetray(const std::string& entity_id);
+    float getTrust(const std::string& entity_id) const;
 
 protected:
     void updateComponent(ecs::Entity& entity,

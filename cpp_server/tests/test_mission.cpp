@@ -412,7 +412,7 @@ void testMissionTemplateGenerate() {
     auto mission = sys.generateMissionFromTemplate(templates[0], "system_1", "player_1");
     assertTrue(!mission.mission_id.empty(), "Generated mission has ID");
     assertTrue(!mission.objectives.empty(), "Generated mission has objectives");
-    assertTrue(mission.isk_reward > 0.0, "Generated mission has positive Credits reward");
+    assertTrue(mission.isc_reward > 0.0, "Generated mission has positive Credits reward");
 }
 
 void testMissionTemplateDeterministic() {
@@ -438,7 +438,7 @@ void testMissionTemplateScaledRewards() {
     if (!l1.empty() && !l3.empty()) {
         auto m1 = sys.generateMissionFromTemplate(l1[0], "s1", "p1");
         auto m3 = sys.generateMissionFromTemplate(l3[0], "s1", "p1");
-        assertTrue(m3.isk_reward >= m1.isk_reward,
+        assertTrue(m3.isc_reward >= m1.isc_reward,
                    "Higher level missions give more Credits");
     } else {
         assertTrue(true, "Higher level missions give more Credits (skipped)");
