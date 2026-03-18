@@ -24,9 +24,16 @@ public:
 
     std::string getName() const override { return "IncursionSystem"; }
 
+    void update(float delta_time) override;
+
     // --- public API: mutators ---
     bool initialize(const std::string& entity_id,
                     const std::string& constellation_id = "");
+    // Extended initialize: incursion_id, system_id, max_waves
+    bool initialize(const std::string& entity_id,
+                    const std::string& incursion_id,
+                    const std::string& system_id,
+                    int max_waves);
     bool spawnSite(const std::string& entity_id, const std::string& site_id,
                    components::IncursionState::Tier tier =
                        components::IncursionState::Tier::Vanguard);
@@ -35,6 +42,19 @@ public:
                              const std::string& site_id,
                              const std::string& pilot_id);
     bool applyInfluenceDelta(const std::string& entity_id, float delta);
+
+    // --- Wave-based incursion API (operates on Incursion component) ---
+    bool  addWave(const std::string& entity_id, int wave_number,
+                  const std::string& ship_type, int count);
+    bool  spawnWave(const std::string& entity_id, int wave_number);
+    bool  defeatWave(const std::string& entity_id, int wave_number);
+    bool  joinIncursion(const std::string& entity_id, const std::string& player_id);
+    bool  leaveIncursion(const std::string& entity_id, const std::string& player_id);
+    bool  contributeRewards(const std::string& entity_id, float amount);
+    int   getParticipantCount(const std::string& entity_id) const;
+    int   getState(const std::string& entity_id) const;
+    float getRewardPool(const std::string& entity_id) const;
+    int   getTotalWavesDefeated(const std::string& entity_id) const;
 
     // --- public API: queries ---
     int   getSiteCount(const std::string& entity_id) const;

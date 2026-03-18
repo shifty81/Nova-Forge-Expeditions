@@ -30,6 +30,27 @@ void IncursionSystem::updateComponent(ecs::Entity& entity,
             comp.active = false;
         }
     }
+
+    // Also tick wave-based Incursion component on same entity
+    tickIncursion(entity);
+}
+
+// Helper to update the Incursion (wave-based) component state each tick
+static void tickIncursion(ecs::Entity& entity) {
+    using IS = components::Incursion::IncursionState;
+    auto* inc = entity.getComponent<components::Incursion>();
+    if (!inc) return;
+    if (inc->state == IS::Defeated) return;
+
+    // All waves defeated → Withdrawing
+    if (inc->state == IS::Active &&
+        inc->total_waves_defeated >= inc->max_waves) {
+        inc->state = IS::Withdrawing;
+    }
+    // Influence zero → Defeated
+    if (inc->influence <= 0.0f) {
+        inc->state = IS::Defeated;
+    }
 }
 
 bool IncursionSystem::initialize(const std::string& entity_id,
@@ -167,6 +188,126 @@ float IncursionSystem::getTotalLPPaid(const std::string& entity_id) const {
 int IncursionSystem::getFleetSize(const std::string& entity_id) const {
     auto* comp = getComponentFor(entity_id);
     return comp ? static_cast<int>(comp->fleet_members.size()) : 0;
+}
+
+// ── Extended wave-based incursion API ────────────────────────────────────
+
+// Helper: get or null Incursion component
+static components::Incursion* getIncursion(ecs::World* world,
+                                            const std::string& entity_id) {
+    auto* entity = world->getEntity(entity_id);
+    return entity ? entity->getComponent<components::Incursion>() : nullptr;
+}
+
+bool IncursionSystem::initialize(const std::string& entity_id,
+                                  const std::string& incursion_id,
+                                  const std::string& system_id,
+                                  int max_waves) {
+    auto* entity = world_->getEntity(entity_id);
+    if (!entity) return false;
+    auto comp = std::make_unique<components::Incursion>();
+    comp->incursion_id = incursion_id;
+    comp->system_id = system_id;
+    comp->max_waves = max_waves;
+    comp->influence = 1.0f;
+    entity->addComponent(std::move(comp));
+    return true;
+}
+
+bool IncursionSystem::addWave(const std::string& entity_id, int wave_number,
+                               const std::string& ship_type, int count) {
+    auto* inc = getIncursion(world_, entity_id);
+    if (!inc) return false;
+    if (static_cast<int>(inc->waves.size()) >= inc->max_waves) return false;
+    for (const auto& w : inc->waves) {
+        if (w.wave_number == wave_number) return false; // duplicate
+    }
+    components::Incursion::Wave wave;
+    wave.wave_number = wave_number;
+    wave.ship_type = ship_type;
+    wave.count = count;
+    inc->waves.push_back(wave);
+    return true;
+}
+
+bool IncursionSystem::spawnWave(const std::string& entity_id, int wave_number) {
+    auto* inc = getIncursion(world_, entity_id);
+    if (!inc) return false;
+    for (auto& w : inc->waves) {
+        if (w.wave_number == wave_number) {
+            if (w.spawned) return false; // already spawned
+            w.spawned = true;
+            if (inc->state == components::Incursion::IncursionState::Pending) {
+                inc->state = components::Incursion::IncursionState::Active;
+            }
+            return true;
+        }
+    }
+    return false; // wave not found
+}
+
+bool IncursionSystem::defeatWave(const std::string& entity_id, int wave_number) {
+    auto* inc = getIncursion(world_, entity_id);
+    if (!inc) return false;
+    for (auto& w : inc->waves) {
+        if (w.wave_number == wave_number) {
+            if (w.defeated) return false; // already defeated
+            w.defeated = true;
+            inc->total_waves_defeated++;
+            inc->influence = std::max(0.0f, inc->influence - 0.1f);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool IncursionSystem::joinIncursion(const std::string& entity_id,
+                                     const std::string& player_id) {
+    auto* inc = getIncursion(world_, entity_id);
+    if (!inc) return false;
+    if (static_cast<int>(inc->participants.size()) >= inc->max_participants) return false;
+    for (const auto& p : inc->participants) {
+        if (p == player_id) return false; // duplicate
+    }
+    inc->participants.push_back(player_id);
+    return true;
+}
+
+bool IncursionSystem::leaveIncursion(const std::string& entity_id,
+                                      const std::string& player_id) {
+    auto* inc = getIncursion(world_, entity_id);
+    if (!inc) return false;
+    auto it = std::find(inc->participants.begin(), inc->participants.end(), player_id);
+    if (it == inc->participants.end()) return false;
+    inc->participants.erase(it);
+    return true;
+}
+
+bool IncursionSystem::contributeRewards(const std::string& entity_id, float amount) {
+    auto* inc = getIncursion(world_, entity_id);
+    if (!inc) return false;
+    inc->reward_pool += amount;
+    return true;
+}
+
+int IncursionSystem::getParticipantCount(const std::string& entity_id) const {
+    auto* inc = getIncursion(world_, entity_id);
+    return inc ? static_cast<int>(inc->participants.size()) : 0;
+}
+
+int IncursionSystem::getState(const std::string& entity_id) const {
+    auto* inc = getIncursion(world_, entity_id);
+    return inc ? static_cast<int>(inc->state) : 0;
+}
+
+float IncursionSystem::getRewardPool(const std::string& entity_id) const {
+    auto* inc = getIncursion(world_, entity_id);
+    return inc ? inc->reward_pool : 0.0f;
+}
+
+int IncursionSystem::getTotalWavesDefeated(const std::string& entity_id) const {
+    auto* inc = getIncursion(world_, entity_id);
+    return inc ? inc->total_waves_defeated : 0;
 }
 
 } // namespace systems

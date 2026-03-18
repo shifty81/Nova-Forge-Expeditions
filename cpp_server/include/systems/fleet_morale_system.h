@@ -54,6 +54,15 @@ public:
     bool  isLowCohesion(const std::string& entity_id) const;
     std::string getFleetId(const std::string& entity_id) const;
 
+    // --- FleetMorale convenience API (operates on FleetMorale component) ---
+    bool  recordWin(const std::string& entity_id);
+    bool  recordLoss(const std::string& entity_id);
+    bool  recordShipLost(const std::string& entity_id);
+    bool  recordSavedByPlayer(const std::string& entity_id);
+    bool  recordMissionTogether(const std::string& entity_id);
+    float getMoraleScore(const std::string& entity_id) const;
+    std::string getMoraleState(const std::string& entity_id) const;
+
 protected:
     void updateComponent(ecs::Entity& entity,
                          components::FleetMoraleState& comp,

@@ -829,6 +829,42 @@ public:
 };
 
 // ---------------------------------------------------------------------------
+// Incursion — wave-based incursion encounter with participants and rewards
+// ---------------------------------------------------------------------------
+/**
+ * @brief Wave-based incursion that tracks participants, waves, and rewards.
+ *
+ * Used by the extended IncursionSystem API for wave management, player
+ * participation tracking, and reward pool accumulation.
+ */
+class Incursion : public ecs::Component {
+public:
+    enum class IncursionState { Pending = 0, Active = 1, Withdrawing = 2, Defeated = 3 };
+
+    struct Wave {
+        int wave_number = 0;
+        std::string ship_type;
+        int count = 0;
+        bool spawned = false;
+        bool defeated = false;
+    };
+
+    std::string incursion_id;
+    std::string system_id;
+    float influence = 1.0f;
+    IncursionState state = IncursionState::Pending;
+    int max_waves = 5;
+    int max_participants = 20;
+    float reward_pool = 0.0f;
+    int total_waves_defeated = 0;
+
+    std::vector<Wave> waves;
+    std::vector<std::string> participants;
+
+    COMPONENT_TYPE(Incursion)
+};
+
+// ---------------------------------------------------------------------------
 // KillReport — kill mail generation and loss tracking
 // ---------------------------------------------------------------------------
 /**

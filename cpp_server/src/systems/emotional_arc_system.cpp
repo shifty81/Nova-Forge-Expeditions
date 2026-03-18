@@ -208,5 +208,60 @@ std::string EmotionalArcSystem::getCaptainId(const std::string& entity_id) const
     return comp ? comp->captain_id : "";
 }
 
+// ── Convenience aliases ───────────────────────────────────────────────────
+
+bool EmotionalArcSystem::onCombatVictory(const std::string& entity_id) {
+    // Ensure EmotionalArcState exists before applying win
+    if (!getComponentFor(entity_id)) {
+        auto* entity = world_->getEntity(entity_id);
+        if (!entity) return false;
+        entity->addComponent(std::make_unique<components::EmotionalArcState>());
+    }
+    return applyWin(entity_id);
+}
+
+bool EmotionalArcSystem::onCombatDefeat(const std::string& entity_id) {
+    if (!getComponentFor(entity_id)) {
+        auto* entity = world_->getEntity(entity_id);
+        if (!entity) return false;
+        entity->addComponent(std::make_unique<components::EmotionalArcState>());
+    }
+    return applyLoss(entity_id);
+}
+
+bool EmotionalArcSystem::onRest(const std::string& entity_id) {
+    auto* entity = world_->getEntity(entity_id);
+    if (!entity) return false;
+    auto* state = entity->getComponent<components::EmotionalState>();
+    if (!state) return false;
+    state->fatigue = std::max(0.0f, state->fatigue - 10.0f);
+    return true;
+}
+
+bool EmotionalArcSystem::onPlayerTrust(const std::string& entity_id) {
+    auto* entity = world_->getEntity(entity_id);
+    if (!entity) return false;
+    auto* state = entity->getComponent<components::EmotionalState>();
+    if (!state) return false;
+    state->trust_in_player = std::min(100.0f, state->trust_in_player + 5.0f);
+    return true;
+}
+
+bool EmotionalArcSystem::onPlayerBetray(const std::string& entity_id) {
+    auto* entity = world_->getEntity(entity_id);
+    if (!entity) return false;
+    auto* state = entity->getComponent<components::EmotionalState>();
+    if (!state) return false;
+    state->trust_in_player = std::max(0.0f, state->trust_in_player - 10.0f);
+    return true;
+}
+
+float EmotionalArcSystem::getTrust(const std::string& entity_id) const {
+    auto* entity = world_->getEntity(entity_id);
+    if (!entity) return 50.0f;
+    auto* state = entity->getComponent<components::EmotionalState>();
+    return state ? state->trust_in_player : 50.0f;
+}
+
 } // namespace systems
 } // namespace atlas
