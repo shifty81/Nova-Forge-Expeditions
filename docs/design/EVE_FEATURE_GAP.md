@@ -18,8 +18,8 @@ This document analyzes gameplay features from EVE Online that are missing or inc
 - [x] Criminal flagging mechanics (suspect, criminal, weapons timer)
 - [x] Security status tracking range (-10.0 to +10.0) with effects
 - [x] Faction standing system consequences
-- [ ] Runtime AEGIS NPC spawning in server code
-- [ ] Gate gun AI behavior
+- [x] Runtime AEGIS NPC spawning in server code
+- [x] Gate gun AI behavior
 
 ---
 
@@ -32,11 +32,11 @@ This document analyzes gameplay features from EVE Online that are missing or inc
 
 **Current Status:** Basic AI exists (approach, orbit, attack)
 **Implementation Needed:**
-- [ ] Aggression switching based on threat/DPS
-- [ ] NPC fleet compositions
-- [ ] Officer/Commander spawns with better loot
-- [ ] Sleeper AI (wormhole space)
-- [ ] Drifter/Triglavian equivalents
+- [x] Aggression switching based on threat/DPS
+- [x] NPC fleet compositions
+- [x] Officer/Commander spawns with better loot
+- [x] Sleeper AI (wormhole space)
+- [x] Drifter/Triglavian equivalents
 
 ---
 
@@ -49,11 +49,11 @@ This document analyzes gameplay features from EVE Online that are missing or inc
 
 **Current Status:** Basic bounty values in NPC data, insurance data defined
 **Implementation Needed:**
-- [ ] Automatic bounty payout on NPC destruction
-- [ ] Loyalty Points (LP) system
-- [ ] LP stores with unique items
+- [x] Automatic bounty payout on NPC destruction
+- [x] Loyalty Points (LP) system
+- [x] LP stores with unique items
 - [x] Insurance contract data (`data/security/aegis_and_insurance.json`)
-- [ ] Salvaging mechanics with modules
+- [x] Salvaging mechanics with modules
 
 ---
 
@@ -66,11 +66,11 @@ This document analyzes gameplay features from EVE Online that are missing or inc
 
 **Current Status:** Basic exploration signatures exist
 **Implementation Needed:**
-- [ ] Wormhole generation and connections
-- [ ] Wormhole mass/time limits
-- [ ] Sleeper cache sites
-- [ ] Null-sec specific mechanics (bubbles, cynos)
-- [ ] Dynamic anomaly spawning
+- [x] Wormhole generation and connections
+- [x] Wormhole mass/time limits
+- [x] Sleeper cache sites
+- [x] Null-sec specific mechanics (bubbles, cynos)
+- [x] Dynamic anomaly spawning
 
 ---
 
@@ -84,11 +84,11 @@ This document analyzes gameplay features from EVE Online that are missing or inc
 
 **Current Status:** Basic market data structure, contract/escrow data defined
 **Implementation Needed:**
-- [ ] Order matching engine
+- [x] Order matching engine
 - [x] Broker fees and sales tax data (`data/contracts/contracts.json`)
-- [ ] Order modification/cancellation
-- [ ] Regional price differences
-- [ ] Market API for clients
+- [x] Order modification/cancellation
+- [x] Regional price differences
+- [x] Market API for clients (`market_api_system.h`)
 
 ---
 
@@ -107,8 +107,8 @@ This document analyzes gameplay features from EVE Online that are missing or inc
 - [x] Relay clone mechanics (24-hour cooldown, Infomorph Psychology skill)
 - [x] Implant system (5 attribute slots, 4 grades)
 - [x] Death mechanics (pod kill, skill point loss, implant loss)
-- [ ] Clone bay station service in server code
-- [ ] Relay clone installation UI
+- [x] Clone bay station service in server code
+- [x] Relay clone installation UI (`relay_clone_install_ui_system.h`)
 
 ---
 
@@ -121,10 +121,10 @@ This document analyzes gameplay features from EVE Online that are missing or inc
 
 **Current Status:** Not implemented
 **Implementation Needed:**
-- [ ] Planet scanning
-- [ ] Resource extraction
-- [ ] Production chains
-- [ ] Customs offices
+- [x] Planet scanning (`planet_scan_system.h`)
+- [x] Resource extraction (`planet_scan_system.h`, `pi_system.h`)
+- [x] Production chains (`pi_system.h`)
+- [x] Customs offices (`pi_customs_system.h`)
 
 ---
 
@@ -137,10 +137,10 @@ This document analyzes gameplay features from EVE Online that are missing or inc
 
 **Current Status:** Static mission system only
 **Implementation Needed:**
-- [ ] Dynamic incursion spawning
-- [ ] Multiple difficulty tiers
-- [ ] Fleet coordination rewards
-- [ ] Influence mechanics
+- [x] Dynamic incursion spawning
+- [x] Multiple difficulty tiers
+- [x] Fleet coordination rewards
+- [x] Influence mechanics
 
 ---
 
@@ -154,10 +154,10 @@ This document analyzes gameplay features from EVE Online that are missing or inc
 
 **Current Status:** Basic modules exist, implant data defined
 **Implementation Needed:**
-- [ ] Tech II module variants
-- [ ] Faction module drops
-- [ ] Deadspace loot tables
-- [ ] Meta level system (0-5+)
+- [x] Tech II module variants (`tech2_module_system.h`)
+- [x] Faction module drops (`tech2_module_system.h`)
+- [x] Deadspace loot tables (`tech2_module_system.h`)
+- [x] Meta level system (0-5+)
 - [x] Implant data with slots and grades (`data/character_creation/implants.json`)
 
 ---
@@ -172,45 +172,55 @@ This document analyzes gameplay features from EVE Online that are missing or inc
 
 **Current Status:** Basic blueprint system
 **Implementation Needed:**
-- [ ] Material Efficiency research
-- [ ] Time Efficiency research
-- [ ] Invention mechanics
-- [ ] Reaction formulas
-- [ ] Capital components
+- [x] Material Efficiency research
+- [x] Time Efficiency research
+- [x] Invention mechanics
+- [x] Reaction formulas
+- [x] Capital components (`capital_component_system.h`)
 
 ---
 
 ## Lower Priority (Polish Features)
 
 ### 11. **Character Customization**
-- Ship skins and paint jobs
-- Character portraits
-- Corporation logos
-- Structure skins
+- [x] Ship skins and paint jobs (`ship_skin_system.h`)
+- [x] Character portraits (`character_portrait_system.h`)
+- [x] Corporation logos (`corporation_logo_system.h`)
+- [x] Structure skins (`structure_skin_system.h`)
 
 ### 12. **Social Features (Enhanced)**
-- Alliance system
-- Corporation wars
-- Wardec mechanics
-- Citadel structures
+- [x] Alliance system (`alliance_management_system.h`)
+- [x] Corporation wars (`war_declaration_system.h`)
+- [x] Wardec mechanics (`war_declaration_system.h`)
+- [x] Citadel structures (`citadel_management_system.h`)
+- [x] Asset safety on structure destruction (`asset_safety_system.h`)
 
 ### 13. **Advanced Movement**
-- Microwarp drive signature bloom
-- Afterburner mechanics
-- Inertia modifiers
-- Warp disruption bubbles (null-sec)
+- [x] Microwarp drive signature bloom (`propulsion_module_system.h`)
+- [x] Afterburner mechanics (`propulsion_module_system.h`)
+- [x] Inertia modifiers (`inertia_modifier_system.h`)
+- [x] Warp disruption bubbles (null-sec) (`warp_bubble_system.h`)
+- [x] Stasis webifier velocity reduction (`stasis_web_system.h`)
 
 ### 14. **EWAR Expanded**
-- Remote sensor dampening
-- ECM jamming
-- Tracking disruption
-- Guidance disruption (missiles)
+- [x] Remote sensor dampening (`sensor_dampening_system.h`)
+- [x] ECM jamming (`ecm_jamming_system.h`)
+- [x] Tracking disruption (`tracking_disruption_system.h`)
+- [x] Guidance disruption (missiles) (`tracking_disruption_system.h`)
+- [x] Target painter — signature radius amplification (`target_painter_system.h`)
+- [x] Warp scrambler / warp disruptor (`warp_scrambler_system.h`)
+
+### 16. **Logistics & Support**
+- [x] Remote shield repair (`remote_repair_system.h`)
+- [x] Remote armor repair (`remote_repair_system.h`)
+- [x] Remote hull repair (`remote_repair_system.h`)
+- [x] Fleet command bursts (`command_burst_system.h`)
 
 ### 15. **Abyssal Deadspace**
-- Filament entry system
-- Time-limited pockets
-- Escalating difficulty
-- Mutaplasmid loot
+- [x] Filament entry system (`abyssal_filament_system.h`)
+- [x] Time-limited pockets (`abyssal_filament_system.h`)
+- [x] Escalating difficulty (`abyssal_escalation_system.h`, `abyssal_weather_system.h`)
+- [x] Mutaplasmid loot (`mutaplasmid_system.h`)
 
 ---
 
@@ -279,4 +289,4 @@ To achieve a complete EVE-like PVE experience, focus on:
 4. **Content variety**: Missions, Exploration, Mining, Industry
 5. **Social features**: Corporations, Fleet operations, Shared goals
 
-The current implementation has ~60% of EVE's PVE features (data structures for most systems, runtime code for core gameplay). Completing the remaining runtime implementation would bring it to ~85% feature parity.
+The current implementation has ~70% of EVE's PVE features (data structures for most systems, runtime code for core gameplay). Completing the remaining runtime implementation would bring it to ~90% feature parity.

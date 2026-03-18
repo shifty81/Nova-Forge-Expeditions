@@ -316,6 +316,94 @@ public:
     COMPONENT_TYPE(GalacticResponseCurve)
 };
 
+/**
+ * @brief NPC daily activity schedule for creating visible economic cycles
+ *
+ * Tracks per-NPC activity schedules with time-of-day driven transitions
+ * between activities (mining, hauling, trading, patrolling, resting).
+ * Enables observable AI economic patterns.
+ */
+class NPCSchedule : public ecs::Component {
+public:
+    enum class Activity { Idle, Mining, Hauling, Trading, Patrolling, Resting, Docking };
+
+    struct ScheduleEntry {
+        Activity activity = Activity::Idle;
+        float start_hour = 0.0f;      // 0-24 hour of day
+        float end_hour = 0.0f;
+        std::string location;
+        int priority = 1;              // 1 = lowest, 5 = highest
+    };
+
+    std::vector<ScheduleEntry> schedule;
+    Activity current_activity = Activity::Idle;
+    float current_hour = 0.0f;         // 0-24, wraps
+    float day_length = 86400.0f;       // seconds per game day (default 24h real-time)
+    float elapsed_day_time = 0.0f;
+    int max_entries = 24;
+    int transitions = 0;               // total activity transitions
+    int days_completed = 0;
+    float adherence_score = 1.0f;      // 0-1, how well NPC follows schedule
+    bool active = true;
+
+    COMPONENT_TYPE(NPCSchedule)
+};
+
+/**
+ * @brief Per-entity aggro table for NPC AI targeting decisions
+ *
+ * Tracks accumulated threat from each attacker.  Each tick the system decays
+ * old entries and exposes the highest-threat attacker for AI targeting.
+ */
+class AggroTable : public ecs::Component {
+public:
+    struct AggroEntry {
+        std::string attacker_id;
+        float threat = 0.0f;
+        float last_hit_time = 0.0f;
+    };
+
+    std::vector<AggroEntry> entries;
+    float decay_rate = 2.0f;        // threat units per second
+    float decay_delay = 5.0f;       // seconds after last hit before decay starts
+    int max_entries = 20;
+    int total_threat_events = 0;
+    float total_threat_accumulated = 0.0f;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(AggroTable)
+};
+
+/**
+ * @brief NPC spawn schedule for asteroid belts, gate camps, and mission pockets
+ *
+ * Manages a cyclic wave table with a population cap and respawn interval.
+ * When the live count drops below cap, the next wave spawns after the
+ * timer elapses.  Supports pausing and tracks total spawned/killed.
+ */
+class NpcSpawnSchedule : public ecs::Component {
+public:
+    struct WaveEntry {
+        std::string npc_type;
+        int count = 1;
+    };
+
+    std::vector<WaveEntry> wave_entries;
+    int max_wave_entries = 10;
+    int population_cap = 10;
+    float respawn_interval = 30.0f;  // seconds
+    float respawn_timer = 0.0f;
+    int current_wave_index = 0;
+    int live_count = 0;
+    int total_spawned = 0;
+    int total_killed = 0;
+    bool paused = false;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(NpcSpawnSchedule)
+};
 
 } // namespace components
 } // namespace atlas

@@ -1,338 +1,444 @@
-/**
- * Misc tests
- */
-
-#include "test_framework.h"
-#include "systems/capacitor_system.h"
-#include "systems/shield_recharge_system.h"
-#include "systems/weapon_system.h"
-#include "systems/targeting_system.h"
-#include "data/ship_database.h"
-#include "data/wormhole_database.h"
-#include "systems/wormhole_system.h"
+// Tests for: Space-Planet Transition, Fleet Hangar, Hangar Environment (Phase 14)
+#include "test_log.h"
+#include "components/core_components.h"
+#include "components/navigation_components.h"
+#include "components/ship_components.h"
+#include "ecs/system.h"
 #include "systems/fleet_system.h"
-#include "systems/mission_system.h"
-#include "systems/skill_system.h"
-#include "systems/module_system.h"
-#include "systems/inventory_system.h"
-#include "systems/loot_system.h"
-#include "systems/drone_system.h"
-#include "systems/insurance_system.h"
-#include "systems/corporation_system.h"
-#include "systems/bounty_system.h"
-#include "systems/market_system.h"
-#include "systems/contract_system.h"
-#include "systems/pi_system.h"
-#include "systems/manufacturing_system.h"
-#include "systems/research_system.h"
-#include "systems/chat_system.h"
-#include "systems/character_creation_system.h"
-#include "systems/tournament_system.h"
-#include "systems/leaderboard_system.h"
-#include "data/world_persistence.h"
-#include "data/npc_database.h"
-#include "systems/movement_system.h"
-#include "systems/station_system.h"
-#include "systems/wreck_salvage_system.h"
-#include "systems/fleet_morale_system.h"
-#include "systems/captain_personality_system.h"
-#include "systems/fleet_chatter_system.h"
-#include "systems/warp_anomaly_system.h"
-#include "systems/captain_relationship_system.h"
-#include "systems/emotional_arc_system.h"
-#include "systems/fleet_cargo_system.h"
-#include "systems/tactical_overlay_system.h"
-#include "systems/combat_system.h"
-#include "systems/ai_system.h"
-#include "systems/mining_system.h"
-#include "systems/fleet_formation_system.h"
-#include "systems/captain_memory_system.h"
-#include "systems/ship_fitting_system.h"
-#include "systems/warp_cinematic_system.h"
-#include "systems/warp_hud_travel_mode_system.h"
-#include "systems/warp_auto_comfort_system.h"
-#include "systems/refining_system.h"
-#include "systems/anomaly_system.h"
-#include "systems/scanner_system.h"
-#include "systems/difficulty_scaling_system.h"
-#include "systems/mission_template_system.h"
-#include "systems/mission_generator_system.h"
-#include "systems/reputation_system.h"
-#include "systems/lod_system.h"
-#include "systems/spatial_hash_system.h"
-#include "systems/background_simulation_system.h"
-#include "systems/npc_intent_system.h"
-#include "systems/npc_behavior_tree_system.h"
-#include "systems/combat_threat_system.h"
-#include "systems/security_response_system.h"
-#include "systems/ambient_traffic_system.h"
-#include "systems/snapshot_replication_system.h"
-#include "systems/interest_management_system.h"
-#include "systems/fleet_progression_system.h"
-#include "systems/station_deployment_system.h"
-#include "systems/fleet_warp_formation_system.h"
-#include "systems/warp_meditation_system.h"
-#include "systems/rumor_questline_system.h"
-#include "systems/captain_departure_system.h"
-#include "systems/captain_transfer_system.h"
-#include "systems/npc_rerouting_system.h"
-#include "systems/local_reputation_system.h"
-#include "systems/station_news_system.h"
-#include "systems/wreck_persistence_system.h"
-#include "systems/fleet_history_system.h"
-#include "systems/rig_system.h"
-#include "systems/legend_system.h"
-#include "systems/ancient_tech_system.h"
-#include "systems/docking_system.h"
-#include "systems/survival_system.h"
-#include "systems/menu_system.h"
-#include "systems/crew_system.h"
-#include "systems/salvage_exploration_system.h"
-#include "systems/market_order_system.h"
-#include "systems/ai_economic_actor_system.h"
-#include "systems/turret_ai_system.h"
-#include "systems/titan_assembly_system.h"
-#include "systems/task_scheduler_system.h"
-#include "systems/mod_manager_system.h"
-#include "systems/ship_designer_system.h"
-#include "systems/fleet_morale_resolution_system.h"
-#include "systems/persistence_delta_system.h"
-#include "systems/outer_rim_logistics_distortion_system.h"
-#include "systems/rumor_propagation_system.h"
-#include "systems/galactic_response_curve_system.h"
-#include "systems/ship_capability_rating_system.h"
-#include "systems/module_cascading_failure_system.h"
-#include "systems/navigation_bookmark_system.h"
-#include "systems/fleet_supply_line_system.h"
-#include "systems/crew_training_system.h"
-#include "systems/asteroid_belt_system.h"
-#include "systems/scan_probe_system.h"
-#include "systems/autopilot_system.h"
-#include "network/protocol_handler.h"
-#include "ui/server_console.h"
-#include "utils/logger.h"
-#include "utils/server_metrics.h"
-#include "pcg/deterministic_rng.h"
-#include "pcg/hash_utils.h"
-#include "pcg/pcg_context.h"
-#include "pcg/pcg_manager.h"
-#include "pcg/ship_generator.h"
-#include "pcg/fleet_doctrine.h"
-#include "pcg/room_graph.h"
-#include "pcg/deck_graph.h"
-#include "pcg/elevator_system.h"
-#include "pcg/hull_mesher.h"
-#include "pcg/capital_ship_generator.h"
-#include "pcg/ship_designer.h"
-#include "pcg/snappable_grid.h"
-#include "pcg/station_generator.h"
-#include "pcg/salvage_system.h"
-#include "pcg/rover_system.h"
-#include "pcg/character_mesh_system.h"
-#include "pcg/turret_generator.h"
-#include "pcg/planet_generator.h"
-#include "pcg/habitat_generator.h"
-#include "pcg/grav_bike_generator.h"
-#include "pcg/spine_hull_generator.h"
-#include "pcg/terrain_generator.h"
-#include "pcg/turret_placement_system.h"
-#include "pcg/damage_state_generator.h"
-#include "pcg/procedural_texture_generator.h"
-#include "pcg/shield_effect_generator.h"
-#include "pcg/economy_driven_generator.h"
-#include "pcg/collision_manager.h"
-#include "pcg/asteroid_field_generator.h"
-#include "pcg/anomaly_generator.h"
-#include "pcg/npc_encounter_generator.h"
-#include "pcg/star_system_generator.h"
-#include "pcg/galaxy_generator.h"
-#include "systems/alliance_system.h"
-#include "systems/sovereignty_system.h"
-#include "systems/war_declaration_system.h"
-#include "systems/convoy_ambush_system.h"
-#include "systems/npc_dialogue_system.h"
-#include "systems/station_monument_system.h"
-#include "systems/information_propagation_system.h"
-#include "systems/crew_activity_system.h"
-#include "systems/visual_cue_system.h"
-#include "systems/supply_demand_system.h"
-#include "systems/black_market_system.h"
-#include "systems/price_history_system.h"
-#include "systems/propaganda_system.h"
-#include "systems/rest_station_system.h"
-#include "systems/myth_boss_system.h"
-#include "systems/ancient_tech_upgrade_system.h"
-#include "systems/mod_manifest_system.h"
-#include "systems/ancient_ai_remnant_system.h"
-#include "systems/character_creation_screen_system.h"
-#include "systems/view_mode_transition_system.h"
-#include "systems/station_hangar_system.h"
-#include "systems/tether_docking_system.h"
-#include "systems/fps_spawn_system.h"
-#include "systems/fps_character_controller_system.h"
-#include "systems/interior_door_system.h"
-#include "systems/eva_airlock_system.h"
-#include "systems/fps_interaction_system.h"
-#include "systems/fps_combat_system.h"
-#include "systems/fps_inventory_system.h"
-#include "systems/ship_interior_layout_system.h"
-#include "systems/environmental_hazard_system.h"
-#include "systems/fps_objective_system.h"
-#include "systems/wing_management_system.h"
-#include "systems/economic_flow_system.h"
-#include "systems/resource_production_chain_system.h"
-#include "systems/fleet_doctrine_system.h"
-#include "systems/player_progression_system.h"
-#include "systems/terraforming_system.h"
-#include "systems/food_processor_system.h"
-#include "systems/fleet_squad_system.h"
-#include "systems/cloaking_system.h"
-#include "systems/jump_drive_system.h"
-#include "systems/cargo_scan_system.h"
-#include "systems/commander_disagreement_system.h"
-#include "systems/imperfect_information_system.h"
-#include "systems/captain_background_system.h"
-#include "systems/rover_interior_system.h"
-#include "systems/bike_garage_system.h"
-#include "systems/visual_rig_system.h"
-#include "systems/planetary_traversal_system.h"
-#include "systems/solar_panel_system.h"
-#include "systems/farming_deck_system.h"
-#include "systems/docking_ring_extension_system.h"
-#include "systems/rover_bay_ramp_system.h"
-#include "systems/grid_construction_system.h"
-#include "systems/space_planet_transition_system.h"
 #include "systems/fleet_hangar_system.h"
 #include "systems/hangar_environment_system.h"
-#include "systems/dock_node_layout_system.h"
-#include "systems/mission_consequence_system.h"
-#include "systems/server_performance_monitor_system.h"
-#include "systems/atlas_ui_panel_system.h"
-#include "systems/keyboard_navigation_system.h"
-#include "systems/data_binding_system.h"
-#include "systems/entity_stress_test_system.h"
-#include "systems/rig_locker_system.h"
-#include "systems/visual_coupling_system.h"
-#include "systems/fps_salvage_path_system.h"
-#include "systems/lavatory_interaction_system.h"
-#include "systems/eva_airlock_exit_system.h"
-#include "systems/ancient_module_discovery_system.h"
-#include "systems/client_prediction_system.h"
-#include "systems/ship_template_mod_system.h"
-#include "systems/database_persistence_system.h"
-#include "systems/mission_editor_system.h"
-#include "systems/content_validation_system.h"
-#include "systems/cloud_deployment_config_system.h"
-#include "systems/interest_management_priority_system.h"
-#include "systems/visual_feedback_queue_system.h"
-#include "systems/mod_doc_generator_system.h"
-#include "systems/community_content_repository_system.h"
-#include "systems/pvp_toggle_system.h"
-#include "systems/dynamic_event_system.h"
-#include "systems/jump_gate_system.h"
-#include "systems/snapshot_replication_system2.h"
-#include "systems/procedural_mission_generator_system.h"
-#include "systems/incursion_system.h"
-#include "systems/clone_bay_system.h"
-#include "systems/loyalty_point_store_system.h"
-#include <fstream>
-#include <thread>
+#include "systems/space_planet_transition_system.h"
 #include <sys/stat.h>
 
 using namespace atlas;
-using atlas::test::assertTrue;
-using atlas::test::approxEqual;
-using atlas::test::addComp;
 
-// ==================== Phase 9: Timing Rules Tests ====================
+// =====================================================
+// Space-Planet Transition System Tests (Phase 14)
 
-void testChatterTimingNoOverlap() {
-    std::cout << "\n=== Chatter Timing No Overlap ===" << std::endl;
+// =====================================================
+
+static void testTransitionInit() {
+    std::cout << "\n=== Space-Planet Transition: Init ===" << std::endl;
     ecs::World world;
-    systems::FleetChatterSystem sys(&world);
-    auto* e1 = world.createEntity("cap1");
-    auto* e2 = world.createEntity("cap2");
-    addComp<components::CaptainPersonality>(e1);
-    addComp<components::FleetChatterState>(e1);
-    addComp<components::CaptainPersonality>(e2);
-    addComp<components::FleetChatterState>(e2);
-    sys.setActivity("cap1", "Idle");
-    sys.setActivity("cap2", "Idle");
-
-    std::string line1 = sys.getNextChatterLine("cap1");
-    assertTrue(!line1.empty(), "First captain speaks");
-    assertTrue(sys.isAnyoneSpeaking(), "Someone is speaking");
-
-    std::string line2 = sys.getNextChatterLine("cap2");
-    assertTrue(line2.empty(), "Second captain blocked (overlap prevention)");
+    systems::SpacePlanetTransitionSystem sys(&world);
+    world.createEntity("ship_1");
+    assertTrue(sys.initializeTransition("ship_1", "planet_1", true), "Transition initialized");
+    assertTrue(sys.getTransitionState("ship_1") == "in_space", "Starts in space");
+    assertTrue(approxEqual(sys.getAltitude("ship_1"), 1000.0f), "Altitude starts at 1000");
+    assertTrue(!sys.initializeTransition("ship_1", "planet_1", true), "Duplicate init fails");
 }
 
-void testChatterTimingCooldownRange() {
-    std::cout << "\n=== Chatter Timing Cooldown Range ===" << std::endl;
+static void testTransitionBeginDescent() {
+    std::cout << "\n=== Space-Planet Transition: Begin Descent ===" << std::endl;
     ecs::World world;
-    systems::FleetChatterSystem sys(&world);
-    auto* entity = world.createEntity("cap1");
-    auto* pers = addComp<components::CaptainPersonality>(entity);
-    pers->sociability = 0.1f;  // very low → would try to double cooldown
-    pers->optimism = 0.0f;     // low → would push to 45+
-    auto* chatter = addComp<components::FleetChatterState>(entity);
-    sys.setActivity("cap1", "Idle");
-    sys.getNextChatterLine("cap1");
-    // With clamp, cooldown should be at most 45.0
-    assertTrue(chatter->chatter_cooldown >= 20.0f, "Cooldown at least 20s");
-    assertTrue(chatter->chatter_cooldown <= 45.0f, "Cooldown at most 45s");
+    systems::SpacePlanetTransitionSystem sys(&world);
+    world.createEntity("ship_1");
+    sys.initializeTransition("ship_1", "planet_1", true);
+    assertTrue(sys.beginDescent("ship_1"), "Descent started");
+    assertTrue(sys.getTransitionState("ship_1") == "orbit_entry", "State is orbit_entry");
+    assertTrue(!sys.beginDescent("ship_1"), "Cannot start descent again while in transition");
 }
 
-void testChatterSpeakingClearedAfterCooldown() {
-    std::cout << "\n=== Chatter Speaking Cleared After Cooldown ===" << std::endl;
+static void testTransitionDescentSequence() {
+    std::cout << "\n=== Space-Planet Transition: Descent Sequence ===" << std::endl;
     ecs::World world;
-    systems::FleetChatterSystem sys(&world);
-    auto* entity = world.createEntity("cap1");
-    addComp<components::CaptainPersonality>(entity);
-    addComp<components::FleetChatterState>(entity);
-    sys.setActivity("cap1", "Idle");
-    sys.getNextChatterLine("cap1");
-    auto* chatter = entity->getComponent<components::FleetChatterState>();
-    assertTrue(chatter->is_speaking, "Captain is speaking");
-    sys.update(60.0f);  // expire cooldown
-    assertTrue(!chatter->is_speaking, "is_speaking cleared after cooldown");
-    assertTrue(!sys.isAnyoneSpeaking(), "No one speaking after cooldown");
+    systems::SpacePlanetTransitionSystem sys(&world);
+    world.createEntity("ship_1");
+    sys.initializeTransition("ship_1", "planet_1", false);
+    sys.beginDescent("ship_1");
+    // Advance through OrbitEntry (10s), AtmosphereEntry (10s), DescentPhase (10s), LandingApproach (10s)
+    for (int i = 0; i < 40; i++) sys.update(1.0f);
+    assertTrue(sys.getTransitionState("ship_1") == "landed", "Reached landed state");
+    assertTrue(approxEqual(sys.getAltitude("ship_1"), 0.0f), "Altitude is 0 when landed");
 }
 
-// ==================== Turret Generator Tests ====================
-
-void testTurretGeneration() {
-    std::cout << "\n=== Turret Generation ===" << std::endl;
-    pcg::TurretGenerator gen;
-    auto turret = gen.generate(42, pcg::TurretSize::Medium, pcg::TurretType::Energy, "Solari");
-    assertTrue(turret.profile.base_damage > 0.0f, "Turret has damage");
-    assertTrue(turret.optimal_range > 0.0f, "Turret has range");
-    assertTrue(turret.power_draw > 0.0f, "Turret has power draw");
+static void testTransitionBeginLaunch() {
+    std::cout << "\n=== Space-Planet Transition: Begin Launch ===" << std::endl;
+    ecs::World world;
+    systems::SpacePlanetTransitionSystem sys(&world);
+    world.createEntity("ship_1");
+    sys.initializeTransition("ship_1", "planet_1", false);
+    sys.beginDescent("ship_1");
+    for (int i = 0; i < 40; i++) sys.update(1.0f);
+    assertTrue(sys.getTransitionState("ship_1") == "landed", "Is landed");
+    assertTrue(sys.beginLaunch("ship_1"), "Launch started");
+    assertTrue(sys.getTransitionState("ship_1") == "launch_sequence", "State is launch_sequence");
 }
 
-void testTurretDeterminism() {
-    std::cout << "\n=== Turret Determinism ===" << std::endl;
-    pcg::TurretGenerator gen;
-    auto t1 = gen.generate(777, pcg::TurretSize::Small, pcg::TurretType::Projectile, "Veyren");
-    auto t2 = gen.generate(777, pcg::TurretSize::Small, pcg::TurretType::Projectile, "Veyren");
-    assertTrue(approxEqual(t1.profile.base_damage, t2.profile.base_damage), "Same seed same damage");
-    assertTrue(approxEqual(t1.optimal_range, t2.optimal_range), "Same seed same range");
+static void testTransitionLaunchSequence() {
+    std::cout << "\n=== Space-Planet Transition: Launch Sequence ===" << std::endl;
+    ecs::World world;
+    systems::SpacePlanetTransitionSystem sys(&world);
+    world.createEntity("ship_1");
+    sys.initializeTransition("ship_1", "planet_1", false);
+    sys.beginDescent("ship_1");
+    for (int i = 0; i < 40; i++) sys.update(1.0f);
+    sys.beginLaunch("ship_1");
+    // Advance through LaunchSequence (10s), AtmosphereExit (10s), OrbitExit (10s)
+    for (int i = 0; i < 30; i++) sys.update(1.0f);
+    assertTrue(sys.getTransitionState("ship_1") == "in_space", "Returned to space");
+    assertTrue(approxEqual(sys.getAltitude("ship_1"), 1000.0f), "Altitude reset to 1000");
 }
 
-void testTurretSizeScaling() {
-    std::cout << "\n=== Turret Size Scaling ===" << std::endl;
-    pcg::TurretGenerator gen;
-    auto small = gen.generate(100, pcg::TurretSize::Small, pcg::TurretType::Projectile, "");
-    auto large = gen.generate(100, pcg::TurretSize::Large, pcg::TurretType::Projectile, "");
-    assertTrue(large.profile.base_damage > small.profile.base_damage, "Large turret more damage than small");
+static void testTransitionAbort() {
+    std::cout << "\n=== Space-Planet Transition: Abort ===" << std::endl;
+    ecs::World world;
+    systems::SpacePlanetTransitionSystem sys(&world);
+    world.createEntity("ship_1");
+    sys.initializeTransition("ship_1", "planet_1", true);
+    sys.beginDescent("ship_1");
+    sys.update(3.0f);  // Partially into orbit entry
+    assertTrue(sys.abortTransition("ship_1"), "Abort succeeded");
+    assertTrue(sys.getTransitionState("ship_1") == "in_space", "Returned to space");
+    assertTrue(approxEqual(sys.getAltitude("ship_1"), 1000.0f), "Altitude reset");
+}
+
+static void testTransitionAbortInvalid() {
+    std::cout << "\n=== Space-Planet Transition: Abort Invalid ===" << std::endl;
+    ecs::World world;
+    systems::SpacePlanetTransitionSystem sys(&world);
+    world.createEntity("ship_1");
+    sys.initializeTransition("ship_1", "planet_1", false);
+    assertTrue(!sys.abortTransition("ship_1"), "Cannot abort when InSpace");
+    sys.beginDescent("ship_1");
+    for (int i = 0; i < 40; i++) sys.update(1.0f);
+    assertTrue(!sys.abortTransition("ship_1"), "Cannot abort when Landed");
+}
+
+static void testTransitionAtmosphereHeat() {
+    std::cout << "\n=== Space-Planet Transition: Atmosphere Heat ===" << std::endl;
+    ecs::World world;
+    systems::SpacePlanetTransitionSystem sys(&world);
+    world.createEntity("ship_1");
+    sys.initializeTransition("ship_1", "planet_1", true);
+    assertTrue(approxEqual(sys.getHeatLevel("ship_1"), 0.0f), "Initial heat is 0");
+    sys.beginDescent("ship_1");
+    // Advance through OrbitEntry (10s) into AtmosphereEntry
+    for (int i = 0; i < 10; i++) sys.update(1.0f);
+    // Now in AtmosphereEntry, heat should build
+    sys.update(5.0f);
+    assertTrue(sys.getHeatLevel("ship_1") > 0.0f, "Heat built up during atmosphere entry");
+}
+
+static void testTransitionAutopilot() {
+    std::cout << "\n=== Space-Planet Transition: Autopilot ===" << std::endl;
+    ecs::World world;
+    systems::SpacePlanetTransitionSystem sys(&world);
+    world.createEntity("ship_1");
+    sys.initializeTransition("ship_1", "planet_1", true);
+    assertTrue(sys.setAutopilot("ship_1", true), "Autopilot enabled");
+    assertTrue(sys.setLandingTarget("ship_1", 100.0f, 200.0f), "Landing target set");
+}
+
+static void testTransitionMissing() {
+    std::cout << "\n=== Space-Planet Transition: Missing Entity ===" << std::endl;
+    ecs::World world;
+    systems::SpacePlanetTransitionSystem sys(&world);
+    assertTrue(!sys.initializeTransition("nonexistent", "planet_1", true), "Init fails on missing");
+    assertTrue(!sys.beginDescent("nonexistent"), "Descent fails on missing");
+    assertTrue(approxEqual(sys.getAltitude("nonexistent"), 0.0f), "Altitude 0 on missing");
+    assertTrue(sys.getTransitionState("nonexistent") == "unknown", "State unknown on missing");
+}
+
+
+// =====================================================
+// Fleet Hangar System Tests (Phase 14)
+
+// =====================================================
+
+static void testFleetHangarInit() {
+    std::cout << "\n=== Fleet Hangar: Init ===" << std::endl;
+    ecs::World world;
+    systems::FleetHangarSystem sys(&world);
+    world.createEntity("station_1");
+    assertTrue(sys.initializeHangar("station_1", "player1", "Main Hangar", 1), "Hangar initialized");
+    assertTrue(sys.getTier("station_1") == 1, "Tier is 1");
+    assertTrue(sys.getMaxSlots("station_1") == 5, "Max slots is 5 for tier 1");
+    assertTrue(sys.getShipCount("station_1") == 0, "No ships docked");
+    assertTrue(!sys.initializeHangar("station_1", "player1", "Dup", 1), "Duplicate init fails");
+}
+
+static void testFleetHangarDock() {
+    std::cout << "\n=== Fleet Hangar: Dock ===" << std::endl;
+    ecs::World world;
+    systems::FleetHangarSystem sys(&world);
+    world.createEntity("station_1");
+    sys.initializeHangar("station_1", "player1", "Hangar", 1);
+    assertTrue(sys.dockShip("station_1", "ship_1", "frigate", 100.0f), "Ship docked");
+    assertTrue(sys.getShipCount("station_1") == 1, "Ship count is 1");
+    assertTrue(!sys.dockShip("station_1", "ship_1", "frigate", 100.0f), "Duplicate dock fails");
+}
+
+static void testFleetHangarUndock() {
+    std::cout << "\n=== Fleet Hangar: Undock ===" << std::endl;
+    ecs::World world;
+    systems::FleetHangarSystem sys(&world);
+    world.createEntity("station_1");
+    sys.initializeHangar("station_1", "player1", "Hangar", 1);
+    sys.dockShip("station_1", "ship_1", "frigate", 100.0f);
+    assertTrue(sys.undockShip("station_1", "ship_1"), "Ship undocked");
+    assertTrue(sys.getShipCount("station_1") == 0, "Ship count is 0");
+    assertTrue(!sys.undockShip("station_1", "ship_1"), "Undock of absent ship fails");
+}
+
+static void testFleetHangarFull() {
+    std::cout << "\n=== Fleet Hangar: Full ===" << std::endl;
+    ecs::World world;
+    systems::FleetHangarSystem sys(&world);
+    world.createEntity("station_1");
+    sys.initializeHangar("station_1", "player1", "Hangar", 1);
+    for (int i = 0; i < 5; i++) {
+        sys.dockShip("station_1", "ship_" + std::to_string(i), "frigate", 100.0f);
+    }
+    assertTrue(sys.getShipCount("station_1") == 5, "Hangar full with 5 ships");
+    assertTrue(!sys.dockShip("station_1", "ship_extra", "cruiser", 100.0f), "Cannot dock when full");
+}
+
+static void testFleetHangarLock() {
+    std::cout << "\n=== Fleet Hangar: Lock ===" << std::endl;
+    ecs::World world;
+    systems::FleetHangarSystem sys(&world);
+    world.createEntity("station_1");
+    sys.initializeHangar("station_1", "player1", "Hangar", 1);
+    sys.dockShip("station_1", "ship_1", "frigate", 100.0f);
+    assertTrue(sys.lockShip("station_1", "ship_1"), "Ship locked");
+    assertTrue(!sys.undockShip("station_1", "ship_1"), "Cannot undock locked ship");
+    assertTrue(sys.unlockShip("station_1", "ship_1"), "Ship unlocked");
+    assertTrue(sys.undockShip("station_1", "ship_1"), "Undock after unlock");
+}
+
+static void testFleetHangarUpgrade() {
+    std::cout << "\n=== Fleet Hangar: Upgrade ===" << std::endl;
+    ecs::World world;
+    systems::FleetHangarSystem sys(&world);
+    world.createEntity("station_1");
+    sys.initializeHangar("station_1", "player1", "Hangar", 1);
+    assertTrue(sys.upgradeHangar("station_1"), "Upgrade to tier 2");
+    assertTrue(sys.getTier("station_1") == 2, "Tier is 2");
+    assertTrue(sys.getMaxSlots("station_1") == 10, "Max slots is 10 for tier 2");
+}
+
+static void testFleetHangarMaxTier() {
+    std::cout << "\n=== Fleet Hangar: Max Tier ===" << std::endl;
+    ecs::World world;
+    systems::FleetHangarSystem sys(&world);
+    world.createEntity("station_1");
+    sys.initializeHangar("station_1", "player1", "Hangar", 5);
+    assertTrue(sys.getTier("station_1") == 5, "Tier is 5");
+    assertTrue(sys.getMaxSlots("station_1") == 50, "Max slots is 50 for tier 5");
+    assertTrue(!sys.upgradeHangar("station_1"), "Cannot upgrade past tier 5");
+}
+
+static void testFleetHangarRepair() {
+    std::cout << "\n=== Fleet Hangar: Repair ===" << std::endl;
+    ecs::World world;
+    systems::FleetHangarSystem sys(&world);
+    world.createEntity("station_1");
+    sys.initializeHangar("station_1", "player1", "Hangar", 1);
+    sys.dockShip("station_1", "ship_1", "frigate", 50.0f);
+    assertTrue(sys.repairShip("station_1", "ship_1", 30.0f), "Repair applied");
+    // Verify ship count still correct
+    assertTrue(sys.getShipCount("station_1") == 1, "Ship still docked after repair");
+}
+
+static void testFleetHangarPower() {
+    std::cout << "\n=== Fleet Hangar: Power ===" << std::endl;
+    ecs::World world;
+    systems::FleetHangarSystem sys(&world);
+    world.createEntity("station_1");
+    sys.initializeHangar("station_1", "player1", "Hangar", 1);
+    sys.setPowerEnabled("station_1", false);
+    assertTrue(!sys.dockShip("station_1", "ship_1", "frigate", 100.0f), "Cannot dock without power");
+    sys.setPowerEnabled("station_1", true);
+    assertTrue(sys.dockShip("station_1", "ship_1", "frigate", 100.0f), "Dock with power");
+    sys.setPowerEnabled("station_1", false);
+    assertTrue(!sys.undockShip("station_1", "ship_1"), "Cannot undock without power");
+}
+
+static void testFleetHangarMissing() {
+    std::cout << "\n=== Fleet Hangar: Missing Entity ===" << std::endl;
+    ecs::World world;
+    systems::FleetHangarSystem sys(&world);
+    assertTrue(!sys.initializeHangar("nonexistent", "p", "H", 1), "Init fails on missing");
+    assertTrue(!sys.dockShip("nonexistent", "s", "c", 100.0f), "Dock fails on missing");
+    assertTrue(sys.getShipCount("nonexistent") == 0, "Count 0 on missing");
+    assertTrue(sys.getTier("nonexistent") == 0, "Tier 0 on missing");
+}
+
+
+// =====================================================
+// Hangar Environment System Tests (Phase 14)
+
+// =====================================================
+
+static void testHangarEnvInit() {
+    std::cout << "\n=== Hangar Environment: Init ===" << std::endl;
+    ecs::World world;
+    systems::HangarEnvironmentSystem sys(&world);
+    world.createEntity("hangar_1");
+    assertTrue(sys.initializeEnvironment("hangar_1",
+        components::HangarEnvironment::AtmosphereType::Toxic, -50.0f, 0.5f), "Env initialized");
+    assertTrue(approxEqual(sys.getToxicity("hangar_1"), 0.0f), "Initial toxicity is 0");
+    assertTrue(!sys.isAlarmActive("hangar_1"), "Alarm not active initially");
+    assertTrue(!sys.initializeEnvironment("hangar_1",
+        components::HangarEnvironment::AtmosphereType::Toxic, -50.0f, 0.5f), "Duplicate init fails");
+}
+
+static void testHangarEnvOpenClose() {
+    std::cout << "\n=== Hangar Environment: Open/Close ===" << std::endl;
+    ecs::World world;
+    systems::HangarEnvironmentSystem sys(&world);
+    world.createEntity("hangar_1");
+    sys.initializeEnvironment("hangar_1",
+        components::HangarEnvironment::AtmosphereType::Breathable, 22.0f, 1.0f);
+    assertTrue(sys.openHangar("hangar_1"), "Hangar opened");
+    assertTrue(sys.closeHangar("hangar_1"), "Hangar closed");
+}
+
+static void testHangarEnvToxicExposure() {
+    std::cout << "\n=== Hangar Environment: Toxic Exposure ===" << std::endl;
+    ecs::World world;
+    systems::HangarEnvironmentSystem sys(&world);
+    world.createEntity("hangar_1");
+    sys.initializeEnvironment("hangar_1",
+        components::HangarEnvironment::AtmosphereType::Toxic, -30.0f, 0.3f);
+    sys.openHangar("hangar_1");
+    // Update several ticks - toxicity should increase
+    for (int i = 0; i < 10; i++) sys.update(1.0f);
+    assertTrue(sys.getToxicity("hangar_1") > 0.0f, "Toxicity increased when open in toxic");
+}
+
+static void testHangarEnvCorrosiveExposure() {
+    std::cout << "\n=== Hangar Environment: Corrosive Exposure ===" << std::endl;
+    ecs::World world;
+    systems::HangarEnvironmentSystem sys(&world);
+    world.createEntity("hangar_1");
+    sys.initializeEnvironment("hangar_1",
+        components::HangarEnvironment::AtmosphereType::Corrosive, 100.0f, 2.0f);
+    sys.openHangar("hangar_1");
+    for (int i = 0; i < 10; i++) sys.update(1.0f);
+    // Check corrosion by getting occupant damage (need to add occupant)
+    sys.addOccupant("hangar_1", "player_1", false, 0.0f);
+    float damage = sys.getOccupantDamage("hangar_1", "player_1");
+    assertTrue(damage > 0.0f, "Damage > 0 in corrosive atmosphere");
+}
+
+static void testHangarEnvUnsuitedDamage() {
+    std::cout << "\n=== Hangar Environment: Unsuited Damage ===" << std::endl;
+    ecs::World world;
+    systems::HangarEnvironmentSystem sys(&world);
+    world.createEntity("hangar_1");
+    sys.initializeEnvironment("hangar_1",
+        components::HangarEnvironment::AtmosphereType::Toxic, -50.0f, 0.5f);
+    sys.openHangar("hangar_1");
+    sys.addOccupant("hangar_1", "player_1", false, 0.0f);
+    for (int i = 0; i < 10; i++) sys.update(1.0f);
+    float damage = sys.getOccupantDamage("hangar_1", "player_1");
+    assertTrue(damage > 0.0f, "Unsuited occupant takes damage");
+}
+
+static void testHangarEnvSuitedProtection() {
+    std::cout << "\n=== Hangar Environment: Suited Protection ===" << std::endl;
+    ecs::World world;
+    systems::HangarEnvironmentSystem sys(&world);
+    world.createEntity("hangar_1");
+    sys.initializeEnvironment("hangar_1",
+        components::HangarEnvironment::AtmosphereType::Toxic, -50.0f, 0.5f);
+    sys.openHangar("hangar_1");
+    sys.addOccupant("hangar_1", "unsuited", false, 0.0f);
+    sys.addOccupant("hangar_1", "suited", true, 0.8f);
+    for (int i = 0; i < 10; i++) sys.update(1.0f);
+    float unsuited_dmg = sys.getOccupantDamage("hangar_1", "unsuited");
+    float suited_dmg = sys.getOccupantDamage("hangar_1", "suited");
+    assertTrue(suited_dmg < unsuited_dmg, "Suited occupant takes less damage");
+}
+
+static void testHangarEnvRecovery() {
+    std::cout << "\n=== Hangar Environment: Recovery ===" << std::endl;
+    ecs::World world;
+    systems::HangarEnvironmentSystem sys(&world);
+    world.createEntity("hangar_1");
+    sys.initializeEnvironment("hangar_1",
+        components::HangarEnvironment::AtmosphereType::Toxic, -50.0f, 0.5f);
+    sys.openHangar("hangar_1");
+    for (int i = 0; i < 10; i++) sys.update(1.0f);
+    float tox_open = sys.getToxicity("hangar_1");
+    sys.closeHangar("hangar_1");
+    for (int i = 0; i < 20; i++) sys.update(1.0f);
+    float tox_closed = sys.getToxicity("hangar_1");
+    assertTrue(tox_closed < tox_open, "Toxicity decreased after closing");
+}
+
+static void testHangarEnvAlarm() {
+    std::cout << "\n=== Hangar Environment: Alarm ===" << std::endl;
+    ecs::World world;
+    systems::HangarEnvironmentSystem sys(&world);
+    world.createEntity("hangar_1");
+    sys.initializeEnvironment("hangar_1",
+        components::HangarEnvironment::AtmosphereType::Toxic, -50.0f, 0.5f);
+    assertTrue(!sys.isAlarmActive("hangar_1"), "No alarm initially");
+    sys.openHangar("hangar_1");
+    // Run enough ticks for toxicity > 0.3 (mix rate 0.1/s, need > 3 seconds)
+    for (int i = 0; i < 10; i++) sys.update(1.0f);
+    assertTrue(sys.isAlarmActive("hangar_1"), "Alarm active when toxicity > 0.3");
+}
+
+static void testHangarEnvVacuum() {
+    std::cout << "\n=== Hangar Environment: Vacuum ===" << std::endl;
+    ecs::World world;
+    systems::HangarEnvironmentSystem sys(&world);
+    world.createEntity("hangar_1");
+    sys.initializeEnvironment("hangar_1",
+        components::HangarEnvironment::AtmosphereType::None, -270.0f, 0.0f);
+    sys.openHangar("hangar_1");
+    for (int i = 0; i < 10; i++) sys.update(1.0f);
+    // In vacuum, internal pressure should drop
+    auto* entity = world.getEntity("hangar_1");
+    auto* env = entity->getComponent<components::HangarEnvironment>();
+    assertTrue(env->internal_pressure < 1.0f, "Pressure dropped in vacuum");
+}
+
+static void testHangarEnvMissing() {
+    std::cout << "\n=== Hangar Environment: Missing Entity ===" << std::endl;
+    ecs::World world;
+    systems::HangarEnvironmentSystem sys(&world);
+    assertTrue(!sys.initializeEnvironment("nonexistent",
+        components::HangarEnvironment::AtmosphereType::Toxic, 0.0f, 0.0f), "Init fails on missing");
+    assertTrue(!sys.openHangar("nonexistent"), "Open fails on missing");
+    assertTrue(approxEqual(sys.getToxicity("nonexistent"), 0.0f), "Toxicity 0 on missing");
+    assertTrue(sys.getOccupantCount("nonexistent") == 0, "Count 0 on missing");
 }
 
 
 void run_misc_tests() {
-    testChatterTimingNoOverlap();
-    testChatterTimingCooldownRange();
-    testChatterSpeakingClearedAfterCooldown();
-    testTurretGeneration();
-    testTurretDeterminism();
-    testTurretSizeScaling();
+    testTransitionInit();
+    testTransitionBeginDescent();
+    testTransitionDescentSequence();
+    testTransitionBeginLaunch();
+    testTransitionLaunchSequence();
+    testTransitionAbort();
+    testTransitionAbortInvalid();
+    testTransitionAtmosphereHeat();
+    testTransitionAutopilot();
+    testTransitionMissing();
+    testFleetHangarInit();
+    testFleetHangarDock();
+    testFleetHangarUndock();
+    testFleetHangarFull();
+    testFleetHangarLock();
+    testFleetHangarUpgrade();
+    testFleetHangarMaxTier();
+    testFleetHangarRepair();
+    testFleetHangarPower();
+    testFleetHangarMissing();
+    testHangarEnvInit();
+    testHangarEnvOpenClose();
+    testHangarEnvToxicExposure();
+    testHangarEnvCorrosiveExposure();
+    testHangarEnvUnsuitedDamage();
+    testHangarEnvSuitedProtection();
+    testHangarEnvRecovery();
+    testHangarEnvAlarm();
+    testHangarEnvVacuum();
+    testHangarEnvMissing();
 }

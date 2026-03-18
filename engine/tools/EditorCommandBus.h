@@ -1,83 +1,66 @@
 #pragma once
+#include <cstdint>
 #include <functional>
-#include <memory>
-#include <stack>
+#include <map>
+#include <mutex>
 #include <string>
 #include <vector>
 
 namespace atlas::tools {
 
-/// Abstract base for editor commands.
-///
-/// Every mutation that the ToolingLayer performs on the simulation must be
-/// wrapped in an IEditorCommand and posted to the EditorCommandBus.  This
-/// guarantees that:
-///   1. The editor never mutates simulation data directly.
-///   2. Every action is undoable / redoable.
-///   3. Commands are deterministic and replayable.
-struct IEditorCommand {
-    virtual ~IEditorCommand() = default;
-
-    /// Human-readable description (e.g. "Move Entity 'ship_01' to (100, 200)").
-    virtual std::string Description() const = 0;
-
-    /// Apply the command to the simulation.
-    virtual void Execute() = 0;
-
-    /// Reverse the effect of Execute().
-    virtual void Undo() = 0;
+/// Identifies a command type in the editor command bus.
+enum class EditorCommandType : uint8_t {
+    SelectEntity,
+    TransformEntity,
+    DeleteEntity,
+    DuplicateEntity,
+    CreateEntity,
+    SetProperty,
+    Undo,
+    Redo,
+    ToggleTool,
+    SaveBookmark,
+    RestoreBookmark,
+    SetLayerVisibility,
+    Custom
 };
 
-/// Queues, executes, and manages undo/redo for editor commands.
+/// A single editor command flowing through the bus.
+struct EditorCommand {
+    EditorCommandType type = EditorCommandType::Custom;
+    uint32_t entityId = 0;
+    std::string key;
+    std::string value;
+    float floatValue = 0.0f;
+};
+
+/// FIFO command queue with handler dispatch for editor commands.
 ///
-/// Usage:
-///   1. Tool posts a command via PostCommand().
-///   2. Game loop calls ProcessCommands() once per frame.
-///   3. User presses Ctrl+Z → UndoLast().
-///   4. User presses Ctrl+Y → RedoLast().
-///
-/// Thread safety: PostCommand() is safe to call from any thread (it only
-/// appends to the pending queue under a lock).  All other methods must be
-/// called from the main/game thread.
+/// Thread-safe.  Commands are enqueued from any thread and dispatched
+/// on the editor thread via Dispatch().
 class EditorCommandBus {
 public:
-    /// Queue a command for execution on the next ProcessCommands() call.
-    void PostCommand(std::unique_ptr<IEditorCommand> cmd);
+    void Enqueue(const EditorCommand& cmd);
+    void Enqueue(EditorCommand&& cmd);
 
-    /// Execute all pending commands.  Each executed command is pushed onto
-    /// the undo stack.  Posting a new command clears the redo stack.
-    void ProcessCommands();
+    /// Move all pending commands into `out` (clears the internal queue).
+    void Drain(std::vector<EditorCommand>& out);
 
-    /// Undo the most recently executed command.
-    /// Returns false if the undo stack is empty.
-    bool UndoLast();
-
-    /// Redo the most recently undone command.
-    /// Returns false if the redo stack is empty.
-    bool RedoLast();
-
-    /// Number of commands waiting to be executed.
     size_t PendingCount() const;
-
-    /// Number of commands on the undo stack.
-    size_t UndoCount() const;
-
-    /// Number of commands on the redo stack.
-    size_t RedoCount() const;
-
-    /// Remove all pending, undo, and redo commands.
     void Clear();
 
-    /// Optional callback invoked after each command is executed, undone, or
-    /// redone.  Useful for logging or UI refresh.
-    using Listener = std::function<void(const IEditorCommand& cmd, bool undone)>;
-    void SetListener(Listener listener);
+    using Handler = std::function<void(const EditorCommand&)>;
+
+    /// Register a handler for a specific command type.
+    void RegisterHandler(EditorCommandType type, Handler handler);
+
+    /// Dispatch all pending commands to registered handlers, then clear.
+    void Dispatch();
 
 private:
-    std::vector<std::unique_ptr<IEditorCommand>> m_pending;
-    std::vector<std::unique_ptr<IEditorCommand>> m_undoStack;
-    std::vector<std::unique_ptr<IEditorCommand>> m_redoStack;
-    Listener m_listener;
+    mutable std::mutex m_mutex;
+    std::vector<EditorCommand> m_pending;
+    std::map<uint8_t, std::vector<Handler>> m_handlers;
 };
 
 } // namespace atlas::tools

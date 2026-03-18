@@ -859,6 +859,336 @@ public:
     COMPONENT_TYPE(CloneBay)
 };
 
+// ==================== FPS Enemy AI ====================
+
+/**
+ * @brief NPC enemy AI state for FPS interior combat
+ *
+ * Manages patrol, alert, chase, and attack behaviors for interior NPCs.
+ * Supports faction-based hostility and configurable detection/attack parameters.
+ */
+class FPSEnemyAI : public ecs::Component {
+public:
+    enum AIState { Idle = 0, Patrol = 1, Alert = 2, Chase = 3, Attack = 4, Flee = 5, Dead = 6 };
+    enum EnemyType { SecurityGuard = 0, Pirate = 1, BoardingParty = 2, Drone = 3, Boss = 4 };
+
+    struct Waypoint {
+        std::string waypoint_id;
+        float x = 0.0f;
+        float y = 0.0f;
+        float z = 0.0f;
+        float wait_time = 2.0f;
+    };
+
+    AIState state = Idle;
+    EnemyType enemy_type = SecurityGuard;
+    std::string faction;
+    float pos_x = 0.0f;
+    float pos_y = 0.0f;
+    float pos_z = 0.0f;
+    float detection_range = 15.0f;      // meters
+    float attack_range = 10.0f;         // meters
+    float fov_angle = 120.0f;           // degrees field of view
+    float health = 100.0f;
+    float max_health = 100.0f;
+    float damage_per_hit = 15.0f;
+    float attack_cooldown = 1.5f;       // seconds between attacks
+    float attack_timer = 0.0f;
+    float alert_duration = 10.0f;       // seconds to stay alert after losing sight
+    float alert_timer = 0.0f;
+    float move_speed = 3.0f;            // m/s
+    std::string target_id;
+    std::vector<Waypoint> patrol_route;
+    int current_waypoint = 0;
+    float waypoint_wait_timer = 0.0f;
+    int total_attacks = 0;
+    int total_kills = 0;
+    int total_patrols_completed = 0;
+    bool active = true;
+
+    COMPONENT_TYPE(FPSEnemyAI)
+};
+
+// ==================== FPS Stealth ====================
+
+/**
+ * @brief Detection/stealth/vision mechanics for FPS gameplay
+ *
+ * Tracks player visibility, noise level, and detection state.
+ * Supports vision cone checks and alert propagation.
+ */
+class FPSStealth : public ecs::Component {
+public:
+    enum DetectionState { Hidden = 0, Suspicious = 1, Detected = 2, FullAlert = 3 };
+
+    DetectionState state = Hidden;
+    float visibility = 0.0f;         // 0.0 = invisible, 1.0 = fully visible
+    float noise_level = 0.0f;        // 0.0 = silent, 1.0 = max noise
+    float detection_meter = 0.0f;    // 0.0 to 1.0, triggers state changes at thresholds
+    float detection_decay_rate = 0.2f;  // per second when out of sight
+    float suspicious_threshold = 0.3f;
+    float detected_threshold = 0.7f;
+    float full_alert_threshold = 1.0f;
+    float light_level = 0.5f;        // ambient light affecting visibility
+    float crouch_visibility_mult = 0.5f;
+    float sprint_noise_mult = 2.0f;
+    bool is_crouching = false;
+    bool is_sprinting = false;
+    bool in_shadow = false;
+    int times_detected = 0;
+    int times_escaped = 0;
+    float time_hidden = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(FPSStealth)
+};
+
+// ==================== FPS Companion ====================
+
+/**
+ * @brief VIP/companion NPC follow mechanics for rescue objectives
+ *
+ * Manages companion NPCs that follow the player, can take damage,
+ * and need protection during escort missions.
+ */
+class FPSCompanion : public ecs::Component {
+public:
+    enum CompanionState { Waiting = 0, Following = 1, Hiding = 2, Injured = 3, Rescued = 4, Dead = 5 };
+    enum CompanionType { VIP = 0, Scientist = 1, Engineer = 2, Civilian = 3, Prisoner = 4 };
+
+    CompanionState state = Waiting;
+    CompanionType companion_type = VIP;
+    std::string name;
+    std::string follower_of;        // entity_id of the player they follow
+    float pos_x = 0.0f;
+    float pos_y = 0.0f;
+    float pos_z = 0.0f;
+    float health = 100.0f;
+    float max_health = 100.0f;
+    float follow_distance = 3.0f;   // meters behind player
+    float move_speed = 2.5f;        // m/s
+    float panic_threshold = 30.0f;  // health % to start hiding
+    float heal_rate = 0.0f;         // hp/s natural regen
+    float morale = 100.0f;          // 0 = panicking, 100 = calm
+    float morale_decay_rate = 5.0f; // per second under fire
+    float morale_recovery_rate = 2.0f;
+    int times_injured = 0;
+    int times_healed = 0;
+    float total_distance_followed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(FPSCompanion)
+};
+
+// ==================== FPS Terminal Hack ====================
+
+/**
+ * @brief Terminal hacking mini-game with difficulty, time limits, and failure
+ *
+ * Manages hack attempts on security terminals, doors, and data cores.
+ * Difficulty scales with security level; failure triggers alarms.
+ */
+class FPSTerminalHack : public ecs::Component {
+public:
+    enum HackState { Locked = 0, Hacking = 1, Success = 2, Failed = 3, Alarmed = 4 };
+    enum TerminalType { SecurityDoor = 0, DataCore = 1, ControlPanel = 2, CargoLock = 3, LifeSupport = 4 };
+
+    HackState state = Locked;
+    TerminalType terminal_type = SecurityDoor;
+    std::string terminal_id;
+    int security_level = 1;          // 1-5, higher = harder
+    float hack_progress = 0.0f;      // 0.0 to 1.0
+    float hack_speed = 0.2f;         // progress per second (modified by skill)
+    float time_limit = 30.0f;        // seconds to complete hack
+    float time_remaining = 30.0f;
+    float skill_bonus = 0.0f;        // 0.0 to 1.0, from player skill
+    int max_attempts = 3;
+    int attempts_used = 0;
+    bool triggers_alarm_on_fail = true;
+    int total_hacks_attempted = 0;
+    int total_hacks_succeeded = 0;
+    int total_alarms_triggered = 0;
+    bool active = true;
+
+    COMPONENT_TYPE(FPSTerminalHack)
+};
+
+// ==================== FPS Cover ====================
+
+/**
+ * @brief Cover detection and tactical positioning for FPS combat
+ *
+ * Manages cover points in the environment, player cover state,
+ * and damage reduction while in cover.
+ */
+class FPSCover : public ecs::Component {
+public:
+    enum CoverState { Exposed = 0, InCover = 1, Peeking = 2, Transitioning = 3 };
+    enum CoverType { None = 0, HalfCover = 1, FullCover = 2, Destructible = 3 };
+
+    struct CoverPoint {
+        std::string point_id;
+        float x = 0.0f;
+        float y = 0.0f;
+        float z = 0.0f;
+        CoverType type = HalfCover;
+        float health = 100.0f;      // for destructible cover
+        bool is_occupied = false;
+        float facing_angle = 0.0f;  // direction cover protects from
+    };
+
+    CoverState state = Exposed;
+    std::string current_cover_id;
+    std::vector<CoverPoint> cover_points;
+    int max_cover_points = 20;
+    float damage_reduction_half = 0.5f;    // 50% reduction in half cover
+    float damage_reduction_full = 0.85f;   // 85% reduction in full cover
+    float damage_reduction_peek = 0.25f;   // 25% reduction when peeking
+    float transition_time = 0.3f;          // seconds to enter/leave cover
+    float transition_progress = 0.0f;
+    float peek_duration = 0.0f;            // time spent peeking
+    int total_covers_used = 0;
+    int total_covers_destroyed = 0;
+    bool active = true;
+
+    COMPONENT_TYPE(FPSCover)
+};
+
+// ==================== Fleet Command Terminal ====================
+
+/**
+ * @brief Buildable / placeable fleet command terminal for RTS fleet control
+ *
+ * The primary interface between FPS gameplay and fleet-level RTS commands.
+ * Players build or place a Fleet Command Terminal on structures (stations,
+ * ships, habitats).  Interacting with it in FPS mode switches to an RTS
+ * fleet command view where the player can issue fleet-wide orders, assign
+ * targets, manage formations, and monitor fleet status.
+ *
+ * This is the bridge between FPS-first gameplay and fleet management.
+ */
+class FleetCommandTerminal : public ecs::Component {
+public:
+    enum class TerminalState { Offline, Idle, Booting, Active, CommandMode, Cooldown, Damaged };
+    enum class FleetOrder { None, Hold, Engage, FocusFire, Retreat, Regroup, FormUp, Patrol, Escort, Warp };
+
+    struct IssuedOrder {
+        FleetOrder order = FleetOrder::None;
+        std::string target_id;
+        float issued_at = 0.0f;
+        bool acknowledged = false;
+    };
+
+    TerminalState state = TerminalState::Offline;
+    std::string owner_id;                // player who placed/owns this terminal
+    std::string structure_id;            // structure it's placed on (station/ship/habitat)
+    std::string active_user_id;          // player currently using it (empty = nobody)
+    std::string linked_fleet_id;         // fleet entity being commanded
+
+    // Boot sequence
+    float boot_time = 3.0f;             // seconds to boot up
+    float boot_progress = 0.0f;
+
+    // Command state
+    std::vector<IssuedOrder> order_history;
+    FleetOrder current_order = FleetOrder::None;
+    std::string current_target_id;
+    float command_range = 50000.0f;      // maximum fleet command range (metres)
+    float cooldown_time = 2.0f;          // seconds between orders
+    float cooldown_remaining = 0.0f;
+
+    // Fleet info cache (updated when terminal is active)
+    int fleet_ship_count = 0;
+    float fleet_readiness = 0.0f;        // 0-1 readiness score
+    float fleet_morale = 100.0f;         // 0-100
+
+    // Placement & construction
+    bool placed = false;                 // has been placed on a structure
+    bool powered = true;                 // requires power to function
+    float integrity = 100.0f;            // 0-100, damaged below 50 = unreliable
+    float damage_threshold = 50.0f;      // below this integrity, terminal is Damaged
+
+    // Limits & tracking
+    int max_orders_history = 50;
+    int total_orders_issued = 0;
+    int total_sessions = 0;              // times a player has entered command mode
+    int total_boots = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(FleetCommandTerminal)
+};
+
+// ---------------------------------------------------------------------------
+// PlayerModeState — tracks which view/control mode the player is in
+// ---------------------------------------------------------------------------
+class PlayerModeState : public ecs::Component {
+public:
+    enum PlayerMode { FPS = 0, Cockpit, Turret, Drone, FleetCommand, StrategicMap, Editor, Spectator };
+
+    PlayerMode  current_mode       = PlayerMode::FPS;
+    PlayerMode  previous_mode      = PlayerMode::FPS;
+    std::string bound_entity_id;
+    float       transition_time    = 0.5f;
+    float       transition_progress = 0.0f;
+    bool        in_transition      = false;
+    int         total_mode_switches = 0;
+    float       elapsed            = 0.0f;
+    bool        active             = true;
+
+    COMPONENT_TYPE(PlayerModeState)
+};
+
+// ---------------------------------------------------------------------------
+// ControlPortState — interactive ports on ships/structures players can occupy
+// ---------------------------------------------------------------------------
+class ControlPortState : public ecs::Component {
+public:
+    struct Port {
+        std::string port_id;
+        std::string port_type;
+        int         enter_mode = 0;
+        std::string connected_system_id;
+        bool        occupied   = false;
+        std::string occupant_id;
+        float       use_time   = 0.0f;
+    };
+
+    std::vector<Port> ports;
+    int   max_ports   = 20;
+    int   total_uses  = 0;
+    float elapsed     = 0.0f;
+    bool  active      = true;
+
+    COMPONENT_TYPE(ControlPortState)
+};
+
+// ---------------------------------------------------------------------------
+// RigLinkState — links a player rig to a ship and provides stat bonuses
+// ---------------------------------------------------------------------------
+class RigLinkState : public ecs::Component {
+public:
+    struct RigStat {
+        std::string stat_name;
+        float       base_value = 0.0f;
+        float       bonus      = 0.0f;
+    };
+
+    std::vector<RigStat> stats;
+    std::string linked_ship_id;
+    std::string linked_port_id;
+    bool        is_linked       = false;
+    float       link_quality    = 1.0f;
+    int         interface_level = 1;
+    int         max_stats       = 20;
+    int         total_links     = 0;
+    int         total_unlinks   = 0;
+    float       elapsed         = 0.0f;
+    bool        active          = true;
+
+    COMPONENT_TYPE(RigLinkState)
+};
+
 } // namespace components
 } // namespace atlas
 

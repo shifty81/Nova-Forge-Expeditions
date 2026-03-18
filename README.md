@@ -1,34 +1,210 @@
+# Nova-Forge: Expeditions
+
+> **The unified project repository** — three-way merge of `AtlasForge` (engine), `NovaForge` (game), and `Atlas-NovaForge` (prior merge) into a single cohesive codebase.
+> See [`AUDIT.md`](AUDIT.md) for all merge decisions. See [`ROADMAP.md`](ROADMAP.md) for the 7-phase dev plan.
+
 ```
 ╔══════════════════════════════════════════════════════════════════╗
-║                                                                  ║
-║       █████╗ ████████╗██╗      █████╗ ███████╗                   ║
-║      ██╔══██╗╚══██╔══╝██║     ██╔══██╗██╔════╝                   ║
-║      ███████║   ██║   ██║     ███████║███████╗                   ║
-║      ██╔══██║   ██║   ██║     ██╔══██║╚════██║                   ║
-║      ██║  ██║   ██║   ███████╗██║  ██║███████║                   ║
-║      ╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚══════╝                   ║
-║                                                                  ║
-║      ███╗   ██╗ ██████╗ ██╗   ██╗ █████╗                         ║
-║      ████╗  ██║██╔═══██╗██║   ██║██╔══██╗                        ║
-║      ██╔██╗ ██║██║   ██║██║   ██║███████║                        ║
-║      ██║╚██╗██║██║   ██║╚██╗ ██╔╝██╔══██║                        ║
-║      ██║ ╚████║╚██████╔╝ ╚████╔╝ ██║  ██║                        ║
-║      ╚═╝  ╚═══╝ ╚═════╝   ╚═══╝  ╚═╝  ╚═╝                        ║
-║                                                                  ║
-║      ███████╗ ██████╗ ██████╗  ██████╗ ███████╗                  ║
-║      ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝                  ║
-║      █████╗  ██║   ██║██████╔╝██║  ███╗█████╗                    ║
-║      ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝                    ║
-║      ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗                  ║
-║      ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝                  ║
-║                                                                  ║
-║          ⚙️  Modular · Data-Driven · Deterministic  ⚙️           ║
-║                   G A M E   E N G I N E                          ║
-║                                                                  ║
+║    NOVA-FORGE: EXPEDITIONS                                       ║
+║    AtlasForge Engine  ×  NovaForge Game  ×  AtlasForgeAI        ║
+║    ⚙️  Modular · Data-Driven · Deterministic · AI-Augmented      ║
 ╚══════════════════════════════════════════════════════════════════╝
 ```
 
-# Atlas NovaForge
+**Nova-Forge: Expeditions** is a tri-modal (FPS + Flight + Fleet Command) space simulation game built
+on the Atlas Engine — a modular, deterministic C++20 game engine. This repo is the final unified
+iteration base, combining the best of all three predecessor repositories.
+
+---
+
+## What's in This Repo
+
+| Layer | Components | Source |
+|-------|-----------|--------|
+| **Engine** | `engine/` — ECS, GraphVM, WorldGraph, PCG, render pipeline, audio, AI, networking, UI | Atlas-NovaForge + AtlasForge |
+| **Engine PCG** | `engine/procedural/` — PCGManager, ConstraintSolver, HullMeshGenerator, BuildQueue, DeterministicRNG | AtlasForge (unique) |
+| **Engine Render** | `engine/render/` — GBuffer, PBRMaterial, ShadowMap, PostProcess, InstancedRenderer | AtlasForge (unique) |
+| **Engine Tools** | `engine/tools/` — ITool, EditorEventBus, UndoableCommandBus, NPCSpawnerTool, etc. | AtlasForge (unique) |
+| **Engine UI** | `engine/ui/atlas/` — AtlasUI widget set, theme, panels | AtlasForge (unique) |
+| **Editor** | `editor/` — Full ToolingLayer with 26 tools, in-game overlay (Alt+F12) | Atlas-NovaForge |
+| **Common Lib** | `cpp_common/` — Shared client/server types (chat, etc.) | NovaForge (unique) |
+| **Game Client** | `cpp_client/` — OpenGL game client (311 files) | Atlas-NovaForge |
+| **Game Server** | `cpp_server/` — 449 game systems, 548 test files, decomposed GameSession | NovaForge + Atlas-NovaForge |
+| **Modules** | `modules/atlas_gameplay/` — FactionSystem, CombatFramework, EconomySystem | Atlas-NovaForge |
+| **Projects** | `projects/` — eveoffline, arena2d, novaforge game module examples | Atlas-NovaForge |
+| **Data** | `data/` — Ships, NPCs, systems, items, missions, factions (JSON) | Atlas-NovaForge |
+| **Docs** | `docs/` — 379 docs: engine specs, design docs, session archive, phase history | All three repos |
+| **Tools** | `tools/` — Contract scanner, replay inspector, Blender spaceship addon | Atlas-NovaForge + AtlasForge |
+| **Planning** | `Chat.md`, `ROADMAP.md`, `AUDIT.md`, `NovaForge Design ideas.rtf` | This repo |
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+```bash
+# Linux / WSL
+sudo apt install cmake ninja-build libglew-dev libglfw3-dev libssl-dev
+# macOS
+brew install cmake ninja glew glfw openssl
+```
+
+### Build
+
+```bash
+./setup.sh          # install dependencies
+./build.sh          # build all targets
+./build.sh server   # build server only
+./build.sh client   # build client only
+./build.sh tests    # build and run tests
+```
+
+### CMake directly
+
+```bash
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+ctest --test-dir build -R atlas      # Atlas engine tests
+ctest --test-dir build -R server     # Server / game system tests
+```
+
+---
+
+## Repository Structure
+
+```
+Nova-Forge-Expeditions/
+│
+├── engine/                 # AtlasEngine core library (C++20)
+│   ├── ecs/                #   Entity-Component-System
+│   ├── graphvm/            #   Deterministic bytecode VM
+│   ├── world/              #   WorldGraph & chunk streaming
+│   ├── procedural/         #   PCGManager, ConstraintSolver, HullMeshGenerator [AtlasForge]
+│   ├── render/             #   GBuffer, PBR, ShadowMap, PostProcess [AtlasForge]
+│   ├── tools/              #   ITool, EditorEventBus, UndoableCommandBus [AtlasForge]
+│   ├── ui/atlas/           #   AtlasUI widgets, theme, panels [AtlasForge]
+│   ├── bootstrap/          #   RuntimeBootstrap (Game/Editor/Server modes) [Atlas-NovaForge]
+│   ├── ai/ flow/ story/    #   AI, FlowGraph, story systems
+│   └── net/ audio/ ...     #   Networking, audio, animation, etc.
+│
+├── editor/                 # AtlasEditor + ToolingLayer (in-game overlay)
+│   └── tools/              #   26 ToolingLayer tools
+│
+├── cpp_server/             # Nova Forge dedicated server
+│   ├── src/systems/        #   449 game systems [NovaForge + Atlas-NovaForge]
+│   ├── src/handlers/       #   Combat/mission/movement/scanner/station handlers [NovaForge]
+│   ├── tests/              #   548 per-domain test files [NovaForge]
+│   └── include/            #   541 server headers [NovaForge]
+│
+├── cpp_client/             # Nova Forge game client (OpenGL)
+├── cpp_common/             # Shared client/server library [NovaForge unique]
+├── client/                 # Atlas client wrapper
+├── server/                 # Atlas server wrapper
+│
+├── modules/atlas_gameplay/ # FactionSystem, CombatFramework, EconomySystem
+├── projects/               # Example game modules
+├── data/                   # Game data (ships, NPCs, systems, items — JSON)
+├── schemas/                # JSON schemas for all data types
+│
+├── atlas_tests/            # Atlas engine integration tests (51 tests)
+├── tests/                  # Engine unit tests incl. AtlasForge PCG/render/UI tests
+│
+├── tools/                  # Dev tools
+│   ├── blender-addon/      #   Blender spaceship generator [AtlasForge unique]
+│   ├── contract_scan.py    #   Architecture boundary enforcement
+│   ├── replay_inspector.py #   Replay file analysis
+│   └── determinism_rules.yaml
+│
+├── docs/                   # 379 documentation files
+│   ├── 00_OVERVIEW.md – 21_*  # Engine specification documents
+│   ├── GAME_DESIGN_VISION.md  # Full game design
+│   ├── SPAGHETTI_CODE_AUDIT.md
+│   ├── EDITOR_CONVERSION_PLAN.md
+│   ├── archive/               # Session and phase history [NovaForge]
+│   ├── design/                # Design specs [NovaForge]
+│   └── features/              # Feature plans [NovaForge]
+│
+├── AUDIT.md                # Three-way merge decisions and overlap analysis
+├── ROADMAP.md              # 7-phase dev/GUI/PCG/AI roadmap (no game features until M7)
+├── Chat.md                 # Full planning chat log
+└── NovaForge Design ideas.rtf  # Original game design notes [NovaForge]
+```
+
+---
+
+## Key Engine Features
+
+- **Deterministic Simulation** — Bit-exact reproducible ticks, hash-ladder verification, replay system
+- **Graph VM** — Deterministic bytecode VM with compile/execute, hot-reload, serialization
+- **WorldGraph** — DAG-based procedural generation: Perlin, FBM, erosion, cube-sphere, voxel
+- **PCG Framework** — `PCGManager`, `ConstraintSolver`, `HullMeshGenerator`, `BuildQueue` (from AtlasForge)
+- **Deferred Rendering** — GBuffer, PBR materials, shadow mapping, post-processing (from AtlasForge)
+- **ToolingLayer** — In-game editor overlay toggled with Alt+F12; 26 tools; `EditorCommandBus`
+- **Atlas AI** — `HttpLLMBackend`, editor assistant, code/asset generation integration point
+- **14 Graph Systems** — WorldGraph, FlowGraph, BehaviorGraph, AnimGraph, AudioGraph, StoryGraph, etc.
+- **Networking** — Client-server + P2P, lockstep/rollback, replication, net inspector
+- **449 Game Systems** — Full Nova Forge simulation: ships, FPS, fleet, economy, AI, missions, etc.
+
+---
+
+## Development Status
+
+See [`ROADMAP.md`](ROADMAP.md) for the complete 7-phase roadmap. Current state:
+
+| Phase | Area | Status |
+|-------|------|--------|
+| A | Dev Infrastructure & Code Health | 🔧 40% complete |
+| B | GUI System Hardening & Expansion | 📋 Foundation done, expansion planned |
+| C | PCG Expansion & Refinement | 📋 Foundation done, expansion planned |
+| D | AtlasForgeAI Integration | 📋 HttpLLMBackend done, full agent loop planned |
+| E | Cross-System Integration | 📋 Planned |
+| F | Advanced Cinematic & Visualization | 📋 Planned |
+| G | Experimental & Futuristic | 📋 Long horizon |
+
+**Game features begin after Milestone 7** — engine, tooling, and AI must be production-solid first.
+
+### Known Issues from Merge (see [`AUDIT.md`](AUDIT.md))
+
+1. `cpp_common/` is not yet wired into CMakeLists link graph
+2. `cpp_server/src/systems/` needs SingleComponentSystem template re-migration (Phase A1)
+3. `GameSession` has two parallel decompositions (`game_session_*.cpp` vs `handlers/`) — needs consolidation
+4. `engine/tools/` and `editor/` have overlapping tool implementations — needs namespacing
+5. 5 new AtlasForge test files not yet registered in `tests/CMakeLists.txt`
+6. `engine/render/` has dual implementations (AtlasForge standalone vs ANF integrated)
+
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [`AUDIT.md`](AUDIT.md) | Three-way merge decisions, overlaps, immediate next actions |
+| [`ROADMAP.md`](ROADMAP.md) | 7-phase Dev/GUI/PCG/AI roadmap |
+| [`Chat.md`](Chat.md) | Full planning session history |
+| [`docs/SPAGHETTI_CODE_AUDIT.md`](docs/SPAGHETTI_CODE_AUDIT.md) | Code cleanup plan (Phases 1–5) |
+| [`docs/EDITOR_CONVERSION_PLAN.md`](docs/EDITOR_CONVERSION_PLAN.md) | ToolingLayer migration plan |
+| [`docs/GAME_DESIGN_VISION.md`](docs/GAME_DESIGN_VISION.md) | Full game design |
+| [`docs/00_OVERVIEW.md`](docs/00_OVERVIEW.md) | Engine architecture overview |
+| [`docs/16_ATLAS_AI.md`](docs/16_ATLAS_AI.md) | AtlasForgeAI integration spec |
+
+---
+
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`docs/ATLAS_CONTRIBUTOR_RULES.md`](docs/ATLAS_CONTRIBUTOR_RULES.md).  
+The determinism contract must be maintained: all changes must pass `tools/contract_scan.py`.
+
+---
+
+## License
+
+See [`LICENSE`](LICENSE).
+
+---
+
+*Nova-Forge: Expeditions — Three-way merge of AtlasForge + NovaForge + Atlas-NovaForge*  
+*March 2026*
 
 Atlas NovaForge is a modular, data-driven game engine and PvE space simulator built in C++20. The **Atlas Engine** provides deterministic simulation, 14+ graph systems, networking, and a custom GUI framework. **Nova Forge** is the game built on top — a tri-modal (FPS + Flight + Fleet Command) space sim with procedural worlds, legend-driven AI, and an in-game editor.
 

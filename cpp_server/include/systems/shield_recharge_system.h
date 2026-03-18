@@ -2,7 +2,7 @@
 #define NOVAFORGE_SYSTEMS_SHIELD_RECHARGE_SYSTEM_H
 
 #include "ecs/single_component_system.h"
-#include "components/game_components.h"
+#include "components/core_components.h"
 #include <string>
 
 namespace atlas {
@@ -16,7 +16,7 @@ namespace systems {
  */
 class ShieldRechargeSystem : public ecs::SingleComponentSystem<components::Health> {
 public:
-    using SingleComponentSystem::SingleComponentSystem;
+    explicit ShieldRechargeSystem(ecs::World* world);
     ~ShieldRechargeSystem() override = default;
     
     std::string getName() const override { return "ShieldRechargeSystem"; }
@@ -29,8 +29,7 @@ public:
     float getShieldPercentage(const std::string& entity_id) const;
 
 protected:
-    void processEntity(ecs::Entity* entity, components::Health* health,
-                       float dt) override;
+    void updateComponent(ecs::Entity& entity, components::Health& health, float delta_time) override;
 };
 
 } // namespace systems

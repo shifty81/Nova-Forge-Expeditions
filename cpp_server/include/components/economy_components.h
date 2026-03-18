@@ -93,8 +93,8 @@ public:
         std::string status;          // "outstanding", "in_progress", "completed", "expired", "failed"
         std::vector<ContractItem> items_offered;
         std::vector<ContractItem> items_requested;
-        double isk_reward = 0.0;
-        double isk_collateral = 0.0;
+        double isc_reward = 0.0;
+        double isc_collateral = 0.0;
         float duration_remaining = -1.0f;
         float days_to_complete = 3.0f;
     };
@@ -634,7 +634,7 @@ public:
         std::string name;
         std::string category;
         int lp_cost = 0;
-        float isk_cost = 0.0f;
+        float isc_cost = 0.0f;
         int tier = 1;
         bool in_stock = true;
         int times_purchased = 0;
@@ -654,10 +654,1304 @@ public:
     int max_items = 50;
     int max_players = 100;
     int total_purchases = 0;
-    float isk_collected = 0.0f;
+    float isc_collected = 0.0f;
     bool active = true;
 
     COMPONENT_TYPE(LoyaltyPointStore)
+};
+
+// ==================== Contract Auction ====================
+
+/**
+ * @brief Auction-based contract system for marketplace bidding
+ *
+ * Manages auction listings with bids, buyout prices, time-based expiry,
+ * seller/buyer tracking, and bid history for an in-game marketplace.
+ */
+class ContractAuction : public ecs::Component {
+public:
+    enum class AuctionState { Pending, Active, Sold, Expired, Cancelled };
+
+    struct Bid {
+        std::string bidder_id;
+        float amount = 0.0f;
+        float timestamp = 0.0f;
+    };
+
+    struct AuctionListing {
+        std::string listing_id;
+        std::string seller_id;
+        std::string item_name;
+        std::string category;       // Ship, Module, Blueprint, Material, Misc
+        float starting_price = 0.0f;
+        float buyout_price = 0.0f;  // 0 = no buyout
+        float current_bid = 0.0f;
+        std::string highest_bidder;
+        float duration = 3600.0f;   // seconds
+        float elapsed = 0.0f;
+        AuctionState state = AuctionState::Pending;
+        std::vector<Bid> bid_history;
+        int bid_count = 0;
+    };
+
+    std::vector<AuctionListing> listings;
+    int max_listings = 50;
+    int total_sold = 0;
+    int total_expired = 0;
+    int total_bids = 0;
+    float total_revenue = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(ContractAuction)
+};
+
+// ==================== Trade Route Analytics ====================
+
+/**
+ * @brief Trade route performance tracking with volume, revenue, and congestion
+ *
+ * Monitors trade route metrics for visible supply/demand cycles.
+ * Tracks per-route volume, revenue, profit margins, and congestion levels
+ * with periodic snapshot intervals for trend analysis.
+ */
+class TradeRouteAnalytics : public ecs::Component {
+public:
+    struct TradeRoute {
+        std::string route_id;
+        std::string origin_system;
+        std::string dest_system;
+        std::string commodity;
+        float volume = 0.0f;
+        float revenue = 0.0f;
+        float cost = 0.0f;
+        int trips = 0;
+        float congestion = 0.0f;    // 0.0 = clear, 1.0 = fully congested
+        bool active = true;
+    };
+
+    std::vector<TradeRoute> routes;
+    int max_routes = 20;
+    float snapshot_interval = 60.0f;  // seconds between snapshots
+    float snapshot_timer = 0.0f;
+    int total_snapshots = 0;
+    float total_volume = 0.0f;
+    float total_revenue = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(TradeRouteAnalytics)
+};
+
+/**
+ * @brief Persistent player wallet with transaction logging
+ */
+class PlayerWallet : public ecs::Component {
+public:
+    struct Transaction {
+        std::string transaction_id;
+        std::string description;
+        double amount = 0.0;        // positive = credit, negative = debit
+        double balance_after = 0.0;
+        float timestamp = 0.0f;
+    };
+
+    double balance = 0.0;
+    double lifetime_earned = 0.0;
+    double lifetime_spent = 0.0;
+    double tax_rate = 0.05;          // 5% default tax
+    int max_transactions = 100;
+    float elapsed = 0.0f;
+    bool active = true;
+    std::vector<Transaction> transactions;
+
+    COMPONENT_TYPE(PlayerWallet)
+};
+
+/**
+ * @brief Player wallet with ISC transaction ledger
+ *
+ * Tracks player balance with deposit/withdrawal operations and
+ * maintains a transaction history for audit trail. Supports the
+ * full trade loop in the vertical slice.
+ */
+class WalletLedger : public ecs::Component {
+public:
+    struct Transaction {
+        std::string tx_id;
+        std::string description;
+        std::string category;  // "Trade", "Bounty", "Insurance", "Mission", "Tax", "Transfer"
+        double amount = 0.0;   // positive = credit, negative = debit
+        double balance_after = 0.0;
+        float timestamp = 0.0f;
+    };
+
+    double balance = 0.0;
+    double total_earned = 0.0;
+    double total_spent = 0.0;
+    std::vector<Transaction> transactions;
+    int max_transactions = 100;
+    int total_tx_count = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(WalletLedger)
+};
+
+/**
+ * @brief Station-side repair service state
+ *
+ * Tracks ongoing repair jobs for entities docked at a station.
+ * Shield, armor, and hull are restored over time at a cost proportional
+ * to the missing HP and the station's repair rate.
+ */
+class StationRepairService : public ecs::Component {
+public:
+    enum class RepairPhase { Idle, RepairingShield, RepairingArmor, RepairingHull, Complete };
+
+    RepairPhase phase = RepairPhase::Idle;
+    std::string station_id;
+    float shield_to_repair = 0.0f;
+    float armor_to_repair = 0.0f;
+    float hull_to_repair = 0.0f;
+    float repair_rate = 50.0f;       // HP per second
+    float cost_per_hp = 1.5f;
+    float total_cost = 0.0f;
+    float total_hp_repaired = 0.0f;
+    float elapsed = 0.0f;
+    bool auto_repair = false;        // if true, begin repair immediately on dock
+    bool active = true;
+
+    COMPONENT_TYPE(StationRepairService)
+};
+
+/**
+ * @brief Tracks active cargo transfers between docked entities
+ *
+ * When two entities are docked at the same station, cargo can be moved
+ * between them at a configurable transfer speed.  Each tick the system
+ * advances active transfers and marks them complete when done.
+ */
+class CargoTransfer : public ecs::Component {
+public:
+    struct TransferJob {
+        std::string target_id;
+        std::string item_type;
+        float amount = 0.0f;
+        float transferred = 0.0f;
+        float transfer_speed = 100.0f;  // units per second
+        bool completed = false;
+    };
+
+    std::vector<TransferJob> jobs;
+    int max_concurrent_transfers = 3;
+    int total_transfers_completed = 0;
+    float total_units_transferred = 0.0f;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(CargoTransfer)
+};
+
+// ==================== Mining Belt Populator ====================
+
+/**
+ * @brief Asteroid belt population management with depletion and respawn
+ *
+ * Spawns and tracks asteroid entities within a mining belt.  Each
+ * asteroid has an ore type, initial quantity, remaining quantity and
+ * an optional richness bonus.  Depleted asteroids are tracked and
+ * respawned after a configurable interval.
+ */
+class MiningBeltPopulator : public ecs::Component {
+public:
+    struct AsteroidEntry {
+        std::string asteroid_id;
+        std::string ore_type;
+        float initial_quantity = 1000.0f;
+        float remaining_quantity = 1000.0f;
+        float richness = 1.0f;         // yield multiplier
+        bool depleted = false;
+    };
+
+    std::vector<AsteroidEntry> asteroids;
+    float respawn_interval = 3600.0f;   // seconds between respawn cycles
+    float respawn_timer = 0.0f;
+    int max_asteroids = 30;
+    int total_mined = 0;
+    int total_respawned = 0;
+    float total_ore_extracted = 0.0f;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(MiningBeltPopulator)
+};
+
+// ==================== Station Service Registry ====================
+
+/**
+ * @brief Station service availability, pricing, and usage tracking
+ *
+ * Manages the set of services available at a station (repair, refine,
+ * market, clone bay, etc.).  Each service has a cost, an availability
+ * flag, and an optional cooldown.  Usage is tracked per service for
+ * analytics.
+ */
+class StationServiceRegistry : public ecs::Component {
+public:
+    enum class ServiceCategory { Repair, Refine, Market, CloneBay, Insurance, Fitting, Reprocessing };
+
+    struct ServiceEntry {
+        std::string service_id;
+        std::string name;
+        ServiceCategory category = ServiceCategory::Repair;
+        float cost = 0.0f;
+        float cooldown = 0.0f;         // seconds between uses, 0 = no cooldown
+        float cooldown_remaining = 0.0f;
+        int times_used = 0;
+        bool available = true;
+    };
+
+    std::vector<ServiceEntry> services;
+    int max_services = 20;
+    int total_uses = 0;
+    float total_revenue = 0.0f;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(StationServiceRegistry)
+};
+
+/**
+ * @brief Ore compression facility for efficient transport
+ *
+ * Compresses raw ore into compressed blocks at a configurable ratio,
+ * reducing cargo volume for hauling.  Each ore type may have a different
+ * compression ratio.  Processing takes time and consumes a small ISC fee.
+ */
+class OreCompression : public ecs::Component {
+public:
+    enum class CompressionState { Idle, Compressing, Complete, Failed };
+
+    struct OreType {
+        std::string ore_name;
+        float compression_ratio = 10.0f;   // 10 raw → 1 compressed
+        float process_time = 5.0f;         // seconds per batch
+        double cost_per_batch = 50.0;      // ISC per batch
+    };
+
+    std::vector<OreType> ore_types;
+    CompressionState state = CompressionState::Idle;
+    std::string current_ore;
+    int raw_units_queued = 0;
+    int compressed_units_produced = 0;
+    float process_timer = 0.0f;
+    double total_isc_spent = 0.0;
+    int total_batches_processed = 0;
+    int total_raw_consumed = 0;
+    int total_compressed_produced = 0;
+    int max_queue = 1000;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(OreCompression)
+};
+
+// ==================== NPC Trader Scheduler System ====================
+
+/**
+ * @brief Schedules NPC hauler/trader routes between stations
+ *
+ * Maintains a list of trade routes that NPC haulers follow
+ * autonomously.  Each route specifies origin/destination stations,
+ * cargo type, and schedule.  The system spawns haulers at intervals,
+ * tracks their progress, and records completed deliveries.
+ */
+class NpcTraderSchedule : public ecs::Component {
+public:
+    enum class RouteState { Waiting, Loading, InTransit, Unloading, Complete };
+
+    struct TradeRoute {
+        std::string route_id;
+        std::string origin_station;
+        std::string destination_station;
+        std::string cargo_type;         // "ore", "goods", "equipment"
+        float cargo_volume = 100.0f;    // m3
+        double cargo_value = 1000.0;    // ISC value
+        RouteState state = RouteState::Waiting;
+        float travel_time = 120.0f;     // seconds for full trip
+        float progress = 0.0f;          // 0.0-1.0
+        float load_time = 10.0f;        // seconds to load/unload
+        float load_progress = 0.0f;
+    };
+
+    std::string scheduler_id;
+    std::vector<TradeRoute> routes;
+    int active_haulers = 0;
+    int max_haulers = 10;
+    float spawn_interval = 60.0f;       // seconds between hauler spawns
+    float spawn_timer = 0.0f;
+    int total_deliveries = 0;
+    double total_cargo_value_delivered = 0.0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(NpcTraderSchedule)
+};
+
+// ==================== Market Trade Execution ====================
+
+/**
+ * @brief Market trade order queue and execution state
+ *
+ * Holds a queue of buy/sell orders waiting to be processed, along with
+ * a configurable broker fee rate.  Each tick, queued orders are validated
+ * and executed with partial fill support.  Completed trades update the
+ * cumulative fee and volume counters.
+ */
+class MarketTradeState : public ecs::Component {
+public:
+    struct TradeOrder {
+        std::string order_type;          // "buy" or "sell"
+        std::string item_id;
+        int quantity = 0;
+        double price_per_unit = 0.0;
+        double available_balance = 0.0;  // buyer's ISC balance (buy orders)
+        int available_stock = 0;         // seller's quantity (sell orders)
+        int filled_quantity = 0;         // actual quantity traded
+    };
+
+    std::vector<TradeOrder> queued_orders;
+    int max_queued_orders = 100;
+    double broker_fee_rate = 0.02;       // 0.0–1.0 fraction
+    double total_broker_fees = 0.0;
+    double total_volume_traded = 0.0;    // ISC value of all completed trades
+    int completed_trades = 0;
+    int partial_fills = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(MarketTradeState)
+};
+
+/**
+ * @brief Mining yield optimizer state
+ *
+ * Aggregates yield multipliers from skills, modules, and environment
+ * to produce a final mining yield multiplier.
+ */
+class MiningYieldState : public ecs::Component {
+public:
+    float skill_bonus = 0.0f;         // e.g. 0.25 = +25% from skills
+    float module_bonus = 0.0f;        // e.g. 0.15 = +15% from mining upgrades
+    float environment_bonus = 0.0f;   // e.g. 0.10 = +10% from rich belt
+    float security_modifier = 1.0f;   // 0.1-2.0, lower sec = higher yield
+    float final_multiplier = 1.0f;    // computed each tick
+    float total_yield = 0.0f;
+    int cycle_count = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(MiningYieldState)
+};
+
+class AsteroidDepletionState : public ecs::Component {
+public:
+    float total_ore_volume = 10000.0f;     // initial ore volume in m3
+    float remaining_ore = 10000.0f;        // current remaining ore
+    float depletion_rate = 0.0f;           // ore removed per second (when being mined)
+    float respawn_rate = 10.0f;            // ore respawned per second
+    float respawn_delay = 300.0f;          // seconds before respawn starts after depletion
+    float time_since_depletion = 0.0f;     // timer for respawn delay
+    int times_depleted = 0;                // how many times fully depleted
+    int active_miners = 0;                 // number of miners currently extracting
+    float security_bonus = 1.0f;           // 0.5 (highsec) to 2.0 (nullsec) volume modifier
+    float elapsed = 0.0f;
+    bool active = true;
+    bool depleted = false;                 // true when remaining_ore <= 0
+
+    float depletionPercent() const {
+        if (total_ore_volume <= 0.0f) return 1.0f;
+        return 1.0f - (remaining_ore / total_ore_volume);
+    }
+
+    COMPONENT_TYPE(AsteroidDepletionState)
+};
+
+class StationServiceState : public ecs::Component {
+public:
+    struct Service {
+        std::string service_id;       // "repair", "refit", "refuel", "clone", "market", "insurance"
+        float base_cost = 100.0f;     // ISC base cost
+        float demand_modifier = 1.0f; // dynamic pricing from demand
+        bool available = true;        // false if service temporarily offline
+    };
+
+    std::vector<Service> services;
+    int max_services = 12;
+    float tax_rate = 0.05f;           // 5% station tax
+    float standing_discount = 0.0f;   // 0.0-0.5, discount based on standings
+    float total_revenue = 0.0f;
+    int total_transactions = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(StationServiceState)
+};
+
+/**
+ * @brief Ship insurance payout state for processing claims
+ *
+ * Tracks insurance policies, premium costs, and payout processing
+ * when ships are destroyed. Supports multiple policy tiers with
+ * different coverage percentages.
+ */
+class ShipInsurancePayoutState : public ecs::Component {
+public:
+    struct Policy {
+        std::string policy_id;
+        std::string ship_id;
+        std::string tier;          // "basic", "standard", "platinum"
+        float coverage = 0.5f;     // 0.0-1.0 percentage of ship value covered
+        float premium = 0.0f;      // ISC premium paid
+        float ship_value = 0.0f;   // ISC value of insured ship
+        bool claimed = false;
+        float claim_time = 0.0f;   // when the claim was filed
+    };
+
+    std::vector<Policy> policies;
+    int max_policies = 20;
+    float total_premiums_collected = 0.0f;
+    float total_payouts_issued = 0.0f;
+    int total_claims = 0;
+    int total_active_policies = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    float profitLoss() const { return total_premiums_collected - total_payouts_issued; }
+
+    COMPONENT_TYPE(ShipInsurancePayoutState)
+};
+
+/**
+ * @brief Planetary colony management state
+ *
+ * Tracks colony buildings, production chains, storage, and exports.
+ * Colonies extract raw materials, process them, and export finished
+ * goods to the market.
+ */
+class ColonyManagementState : public ecs::Component {
+public:
+    struct Building {
+        std::string building_id;
+        std::string building_type;  // "extractor", "processor", "storage", "launchpad"
+        float production_rate = 1.0f;
+        float power_usage = 10.0f;
+        bool online = true;
+    };
+
+    struct StoredGood {
+        std::string good_type;
+        float quantity = 0.0f;
+        float max_quantity = 1000.0f;
+    };
+
+    std::string colony_name;
+    std::string planet_id;
+    std::vector<Building> buildings;
+    std::vector<StoredGood> stored_goods;
+    int max_buildings = 15;
+    float power_capacity = 100.0f;
+    float power_used = 0.0f;
+    float total_exports = 0.0f;
+    float total_export_value = 0.0f;
+    int total_production_cycles = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    float remainingPower() const { return power_capacity - power_used; }
+
+    COMPONENT_TYPE(ColonyManagementState)
+};
+
+/**
+ * @brief Resource respawn tracking for minable asteroids, sites, and NPC spawns
+ *
+ * Manages the lifecycle of depletable resources: once consumed they enter a
+ * cooldown, then respawn (possibly with a different yield).  Enables the
+ * persistent "living world" loop.
+ */
+class ResourceRespawnState : public ecs::Component {
+public:
+    struct RespawnEntry {
+        std::string resource_id;
+        std::string resource_type;    // "asteroid", "site", "npc_spawn"
+        float cooldown_remaining = 0.0f;
+        float cooldown_total = 60.0f; // seconds until respawn
+        float yield_multiplier = 1.0f;
+        bool depleted = false;
+        bool respawned = false;
+    };
+
+    std::string zone_id;
+    std::vector<RespawnEntry> entries;
+    int max_entries = 100;
+    int total_respawns = 0;
+    int total_depletions = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(ResourceRespawnState)
+};
+
+// ==================== Order Matching ====================
+
+/**
+ * @brief Market order matching engine state
+ *
+ * Maintains a price-time-priority order book for a single market region.
+ * Buy and sell orders are matched when a sell price <= the best buy price.
+ * Partial fills are supported.  Each tick processes the pending queue.
+ */
+class OrderMatchingState : public ecs::Component {
+public:
+    enum class Side { Buy, Sell };
+
+    struct BookOrder {
+        std::string order_id;
+        std::string owner_id;
+        Side side = Side::Buy;
+        std::string item_type;
+        int quantity = 0;
+        int filled = 0;
+        float price = 0.0f;
+        float timestamp = 0.0f;         // for FIFO within same price
+        bool cancelled = false;
+    };
+
+    std::string region_id;
+    std::vector<BookOrder> buy_orders;   // sorted best-bid first
+    std::vector<BookOrder> sell_orders;  // sorted best-ask first
+    int max_orders_per_side = 200;
+    int total_matches = 0;
+    int total_volume_traded = 0;
+    float total_value_traded = 0.0f;
+    float broker_fee_rate = 0.02f;       // 2 %
+    float fees_collected = 0.0f;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(OrderMatchingState)
+};
+
+// ==================== Blueprint Research ====================
+
+/**
+ * @brief Blueprint research (ME / TE) state
+ *
+ * Tracks blueprint research jobs that improve Material Efficiency (ME)
+ * or Time Efficiency (TE).  Each research level requires progressively
+ * more time.  Max levels are ME 10 and TE 20.
+ */
+class BlueprintResearchState : public ecs::Component {
+public:
+    enum class ResearchType { MaterialEfficiency, TimeEfficiency };
+
+    struct ResearchJob {
+        std::string blueprint_id;
+        ResearchType type = ResearchType::MaterialEfficiency;
+        int current_level = 0;
+        int target_level = 1;
+        float time_required = 600.0f;   // seconds for this job
+        float progress = 0.0f;
+        bool completed = false;
+        bool cancelled = false;
+    };
+
+    std::string facility_id;
+    std::vector<ResearchJob> jobs;
+    int max_concurrent_jobs = 3;
+    float research_speed = 1.0f;         // multiplier from facility / skill
+    int total_completed = 0;
+    int total_cancelled = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    static constexpr int MAX_ME_LEVEL = 10;
+    static constexpr int MAX_TE_LEVEL = 20;
+
+    COMPONENT_TYPE(BlueprintResearchState)
+};
+
+// ==================== Invention ====================
+
+/**
+ * @brief T2 blueprint invention state
+ *
+ * Manages invention jobs that attempt to create Tech II blueprint
+ * copies from Tech I blueprints.  Each attempt has a probability of
+ * success based on skills and data-core inputs.  Failed attempts
+ * consume inputs but produce no output.
+ */
+class InventionState : public ecs::Component {
+public:
+    struct InventionJob {
+        std::string job_id;
+        std::string t1_blueprint_id;
+        std::string t2_blueprint_id;       // output on success
+        std::string datacore_1;
+        std::string datacore_2;
+        float base_chance = 0.25f;         // 25 % base success
+        float skill_bonus = 0.0f;          // additive from skills
+        float time_required = 900.0f;      // seconds
+        float progress = 0.0f;
+        bool completed = false;
+        bool succeeded = false;
+        bool cancelled = false;
+    };
+
+    std::string facility_id;
+    std::vector<InventionJob> jobs;
+    int max_concurrent_jobs = 3;
+    float research_speed = 1.0f;           // multiplier
+    int total_attempted = 0;
+    int total_succeeded = 0;
+    int total_failed = 0;
+    int total_cancelled = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(InventionState)
+};
+
+// ==================== Regional Market ====================
+
+/**
+ * @brief Regional market price state
+ *
+ * Tracks average prices and trade volumes across multiple regions
+ * to model regional price differences.  Each region maintains a
+ * rolling price history and a trade hub multiplier that adjusts
+ * prices based on local supply/demand.
+ */
+class RegionalMarketState : public ecs::Component {
+public:
+    struct RegionPrice {
+        std::string region_id;
+        std::string item_type;
+        float average_price = 100.0f;
+        float min_price = 90.0f;
+        float max_price = 110.0f;
+        float supply = 1000.0f;
+        float demand = 1000.0f;
+        float hub_multiplier = 1.0f;       // 1.0 for trade hubs, >1.0 for remote
+        int trade_volume = 0;
+    };
+
+    std::vector<RegionPrice> prices;
+    int max_tracked_items = 200;
+    float price_update_interval = 60.0f;    // seconds between recalcs
+    float price_update_timer = 0.0f;
+    float volatility_factor = 0.05f;        // how fast prices change
+    int total_updates = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(RegionalMarketState)
+};
+
+/**
+ * @brief Reaction formula state for processing moon materials
+ *
+ * Manages reaction jobs that convert moon goo into intermediate and
+ * advanced materials.  Each reaction consumes a set of input materials
+ * and produces a single output material over a configurable duration.
+ * Efficiency modifiers from rigs/facilities scale progress speed.
+ */
+struct ReactionFormulaState : public ecs::Component {
+    struct InputMaterial {
+        std::string material_id;
+        int quantity = 0;
+    };
+
+    struct ReactionJob {
+        std::string job_id;
+        std::string formula_id;
+        std::vector<InputMaterial> inputs;
+        std::string output_material;
+        int output_quantity = 0;
+        float time_required = 3600.0f;
+        float progress = 0.0f;
+        bool completed = false;
+        bool cancelled = false;
+    };
+
+    std::string facility_id;
+    std::vector<ReactionJob> jobs;
+    int max_concurrent_reactions = 3;
+    float efficiency = 1.0f;          // rig/facility bonus multiplier
+    int total_started = 0;
+    int total_completed = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(ReactionFormulaState)
+};
+
+/**
+ * @brief Mutaplasmid module mutation state
+ *
+ * Tracks in-progress and completed module mutations.  Each mutation
+ * consumes a mutaplasmid and an eligible module and produces a new
+ * "mutated" module with randomised stat multipliers within a
+ * grade-defined range.
+ */
+class MutaplasmidState : public ecs::Component {
+public:
+    enum class Grade { Unstable, Decayed, Gravid, Overloaded };
+
+    struct StatRoll {
+        std::string stat_name;
+        float min_multiplier = 0.85f;
+        float max_multiplier = 1.15f;
+        float rolled_value = 1.0f;
+        bool rolled = false;
+    };
+
+    struct MutatedModule {
+        std::string original_module_id;
+        std::string mutated_module_id;
+        Grade grade = Grade::Unstable;
+        std::vector<StatRoll> stat_rolls;
+        float overall_quality = 0.0f;   // average (rolled-min)/(max-min) across rolls
+        bool created = false;
+    };
+
+    std::string facility_id;
+    std::vector<MutatedModule> mutations;
+    int max_pending = 5;
+    int total_attempted = 0;
+    int total_created = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(MutaplasmidState)
+};
+
+/**
+ * @brief Planet scan result state for Planetary Operations
+ *
+ * Tracks active scanning probes launched at a planet, stores scan
+ * results (resource type + richness) and the overall scan progress.
+ */
+class PlanetScanState : public ecs::Component {
+public:
+    struct ScanResult {
+        std::string resource_type;    // e.g. "base_metals"
+        float richness = 0.0f;        // 0.0 – 1.0 (poor … rich)
+        bool confirmed = false;
+    };
+
+    std::string planet_id;
+    std::string planet_type;          // "barren", "temperate", etc.
+    bool scanning = false;
+    float scan_strength = 0.0f;       // probe strength (0–100)
+    float scan_progress = 0.0f;       // 0–100 %
+    float scan_duration = 60.0f;      // seconds to complete a full scan
+    float scan_elapsed = 0.0f;
+    std::vector<ScanResult> results;
+    int probes_launched = 0;
+    int total_scans_completed = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(PlanetScanState)
+};
+
+/**
+ * @brief Planetary-Operations customs office state
+ *
+ * Handles export of PI products from a planet to orbit.  Maintains a
+ * queue of pending export batches; each batch completes after a
+ * configurable delay and incurs an export tax.
+ */
+class PiCustomsState : public ecs::Component {
+public:
+    struct ExportBatch {
+        std::string batch_id;
+        std::string colony_id;
+        std::string resource_type;
+        int quantity = 0;
+        float tax_rate = 0.10f;        // 10 % default
+        float export_duration = 300.0f;// seconds
+        float progress = 0.0f;
+        bool completed = false;
+        bool cancelled = false;
+    };
+
+    std::string customs_office_id;
+    std::string system_id;
+    bool player_owned = false;
+    float tax_rate_corp = 0.05f;       // reduced rate for corp members
+    float tax_rate_stranger = 0.15f;   // rate for others
+    std::vector<ExportBatch> batches;
+    int max_concurrent = 5;
+    int total_exported = 0;
+    int total_batches = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(PiCustomsState)
+};
+
+/**
+ * @brief Tech-II / faction / deadspace module catalogue and crafting state
+ *
+ * Manages a per-character (or per-facility) list of module upgrade
+ * recipes.  Supported categories:
+ *   Tech2     – manufactured via Invention
+ *   Faction   – rare NPC drops (no recipe; loot-table sourced)
+ *   Deadspace – exploration-site drops
+ * Meta levels track item quality; higher = stronger but harder to obtain.
+ */
+class Tech2ModuleState : public ecs::Component {
+public:
+    enum class ModuleCategory { Base, Tech2, Faction, Deadspace };
+
+    struct ModuleEntry {
+        std::string module_id;
+        std::string base_module_id;       // the T1 parent
+        ModuleCategory category = ModuleCategory::Base;
+        int meta_level = 0;               // 0=base, 5=T2, 6=faction, 7=deadspace
+        float stat_multiplier = 1.0f;     // stat improvement over base
+        bool unlocked = false;            // player has obtained at least one
+        int quantity_owned = 0;
+    };
+
+    struct LootTableEntry {
+        std::string source_site;          // "anomaly", "deadspace_pocket", "faction_npc"
+        std::string module_id;
+        float drop_chance = 0.01f;        // 0–1
+    };
+
+    std::string owner_id;
+    std::vector<ModuleEntry> modules;
+    std::vector<LootTableEntry> loot_table;
+    int max_modules = 500;
+    int total_tech2_acquired = 0;
+    int total_faction_acquired = 0;
+    int total_deadspace_acquired = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(Tech2ModuleState)
+};
+
+/**
+ * @brief Capital ship component manufacturing state
+ *
+ * Tracks production jobs for capital-specific components
+ * (e.g. Capital Armor Plates, Capital Capacitor Batteries).
+ * Each job consumes raw materials and produces a capital component
+ * after a time proportional to ME/TE research levels.
+ */
+class CapitalComponentState : public ecs::Component {
+public:
+    struct CapitalJob {
+        std::string job_id;
+        std::string component_type;       // e.g. "cap_armor_plate"
+        std::string blueprint_id;
+        int runs = 1;
+        float time_per_run = 28800.0f;    // 8 hours default
+        float me_bonus = 0.0f;            // material efficiency reduction (0–1)
+        float te_bonus = 0.0f;            // time efficiency reduction (0–1)
+        float progress = 0.0f;            // 0–1
+        bool completed = false;
+        bool cancelled = false;
+        int units_produced = 0;
+    };
+
+    std::string facility_id;
+    std::vector<CapitalJob> jobs;
+    int max_concurrent_jobs = 2;
+    int total_completed = 0;
+    int total_units_produced = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(CapitalComponentState)
+};
+
+/**
+ * @brief Market API state for client-facing market data access
+ *
+ * Exposes order books, price history, and subscription feeds to game
+ * clients. Clients subscribe to item types; the server pushes snapshots
+ * of the order book on every price_push_interval tick. Tracks request
+ * counts, active subscriptions and a bounded history of price snapshots
+ * per subscribed item type.
+ */
+class MarketApiState : public ecs::Component {
+public:
+    struct PriceSnapshot {
+        float best_buy  = 0.0f;
+        float best_sell = 0.0f;
+        float volume    = 0.0f;
+        float timestamp = 0.0f;
+    };
+
+    struct Subscription {
+        std::string client_id;
+        std::string item_type;
+        int    snapshot_count = 0;       // snapshots pushed so far
+        float  last_push      = 0.0f;
+    };
+
+    struct ClientRequest {
+        std::string client_id;
+        std::string request_type;        // "buy_orders", "sell_orders", "history"
+        std::string item_type;
+        float       received_at = 0.0f;
+        bool        fulfilled   = false;
+    };
+
+    std::string region_id;
+    std::vector<Subscription>    subscriptions;
+    std::vector<ClientRequest>   pending_requests;
+    std::vector<PriceSnapshot>   price_history;    // most-recent snapshots
+    int   max_history         = 100;
+    int   max_subscriptions   = 50;
+    float price_push_interval = 5.0f;  // seconds between snapshot pushes
+    float push_timer          = 0.0f;
+    int   total_requests      = 0;
+    int   total_pushes        = 0;
+    float elapsed             = 0.0f;
+    bool  active              = true;
+
+    COMPONENT_TYPE(MarketApiState)
+};
+
+// ---------------------------------------------------------------------------
+// MarketWatchlist — price-alert watchlist for market items
+// ---------------------------------------------------------------------------
+/**
+ * @brief Tracks a player watchlist of market items with alert thresholds.
+ *
+ * Each WatchEntry records the item being watched, the current cached price,
+ * and optional buy/sell alert thresholds.  On each tick updatePrices() is
+ * called externally to refresh cached prices; the system fires an alert when
+ * a threshold is crossed.  max_entries caps the list (default 30).
+ * total_alerts_fired counts all threshold crossings since creation.
+ */
+class MarketWatchlist : public ecs::Component {
+public:
+    enum class AlertType { None, BelowBuyThreshold, AboveSellThreshold };
+
+    struct WatchEntry {
+        std::string id;                       // unique entry id
+        std::string item_name;
+        float       current_price    = 0.0f;
+        float       buy_threshold    = 0.0f;  // alert when price drops below this
+        float       sell_threshold   = 0.0f;  // alert when price rises above this
+        bool        buy_alert_set    = false;
+        bool        sell_alert_set   = false;
+        bool        buy_alert_fired  = false;
+        bool        sell_alert_fired = false;
+    };
+
+    std::vector<WatchEntry> entries;
+    int   max_entries        = 30;
+    int   total_alerts_fired = 0;
+    float elapsed            = 0.0f;
+    bool  active             = true;
+
+    COMPONENT_TYPE(MarketWatchlist)
+};
+
+// ---------------------------------------------------------------------------
+// MiningLedgerState — mining session history per player/corp
+// ---------------------------------------------------------------------------
+/**
+ * @brief Tracks mining history — ore types, quantities, ISK values.
+ *
+ * Each LedgerEntry records a mining event with ore_type, quantity, isk_value,
+ * and a timestamp (elapsed at time of entry).  Aggregate counters track
+ * total_quantity, total_isk, and total_entries across all events.
+ * The ledger is capped at max_entries (default 100); oldest entries are
+ * purged when the cap is exceeded.  Entries may be filtered by ore_type
+ * for reporting.  clearLedger wipes all entries but preserves lifetime
+ * aggregates (total_quantity, total_isk, total_entries).
+ */
+class MiningLedgerState : public ecs::Component {
+public:
+    struct LedgerEntry {
+        std::string entry_id;
+        std::string ore_type;     // e.g. "Veldspar", "Kernite", "Mercoxit"
+        int         quantity   = 0;
+        float       isk_value  = 0.0f;
+        float       timestamp  = 0.0f;  // elapsed time when entry was recorded
+    };
+
+    std::string owner_id;
+    std::vector<LedgerEntry> entries;
+    int   max_entries     = 100;
+    int   total_entries   = 0;   // lifetime (includes purged entries)
+    int   total_quantity  = 0;   // lifetime aggregate quantity
+    float total_isk       = 0.0f;// lifetime aggregate ISK
+    float elapsed         = 0.0f;
+    bool  active          = true;
+
+    COMPONENT_TYPE(MiningLedgerState)
+};
+
+// ---------------------------------------------------------------------------
+// DroneLogisticsState — automated drone-based item transfer queues
+// ---------------------------------------------------------------------------
+class DroneLogisticsState : public ecs::Component {
+public:
+    struct TransferRequest {
+        std::string request_id;
+        std::string source_port;
+        std::string dest_port;
+        std::string item_type;
+        int         amount     = 0;
+        bool        completed  = false;
+        float       started_at = 0.0f;
+    };
+
+    std::vector<TransferRequest> requests;
+    int   max_requests              = 100;
+    bool  fleet_deploy_mode         = false;
+    int   total_transfers_completed = 0;
+    float total_items_transferred   = 0.0f;
+    int   active_drones             = 0;
+    int   max_drones                = 5;
+    float elapsed                   = 0.0f;
+    bool  active                    = true;
+
+    COMPONENT_TYPE(DroneLogisticsState)
+};
+
+// ---------------------------------------------------------------------------
+// CorpTaxLedgerState — corporation tax ledger tracking
+// ---------------------------------------------------------------------------
+/**
+ * Tracks tax entries collected from member activities (bounties, mission
+ * rewards, PI, industry, market).  Each entry records the member, the gross
+ * amount, the applied tax rate, and the resulting tax collected.  The ledger
+ * caps at max_entries (default 200).  Lifetime aggregates are maintained in
+ * total_collected and total_entries_ever.
+ */
+class CorpTaxLedgerState : public ecs::Component {
+public:
+    enum class TaxType { Bounty, Mission, PI, Industry, Market };
+
+    struct TaxEntry {
+        std::string entry_id;
+        TaxType     tax_type        = TaxType::Bounty;
+        std::string member_id;
+        double      gross_amount    = 0.0;
+        double      tax_rate        = 0.0;
+        double      tax_collected   = 0.0;
+        float       timestamp       = 0.0f;
+    };
+
+    std::string corp_id;
+    std::vector<TaxEntry> entries;
+    int    max_entries         = 200;
+    double default_tax_rate    = 0.10;     // 10 %
+    double total_collected     = 0.0;
+    int    total_entries_ever  = 0;
+    float  elapsed             = 0.0f;
+    bool   active              = true;
+
+    COMPONENT_TYPE(CorpTaxLedgerState)
+};
+
+// ---------------------------------------------------------------------------
+// MoonMiningSchedulerState — moon mining extraction scheduling
+// ---------------------------------------------------------------------------
+/**
+ * Manages moon drill extraction cycles for a Refinery structure.
+ * An extraction begins with a scheduled duration; each tick counts down.
+ * When ready the chunk can be fractured (detonated) which makes it
+ * available for belt mining.  Tracks extraction history and total yield.
+ */
+class MoonMiningSchedulerState : public ecs::Component {
+public:
+    enum class ExtractionStatus { Idle, Extracting, Ready, Fractured };
+
+    struct Extraction {
+        std::string extraction_id;
+        std::string moon_id;
+        std::string ore_type;
+        float       duration          = 0.0f;  // scheduled duration (s)
+        float       time_remaining    = 0.0f;
+        float       estimated_yield   = 0.0f;  // m³
+        ExtractionStatus status       = ExtractionStatus::Idle;
+    };
+
+    std::string structure_id;
+    std::vector<Extraction> extractions;
+    int   max_extractions           = 10;
+    int   total_extractions_started = 0;
+    int   total_fractured           = 0;
+    float total_yield               = 0.0f;
+    float elapsed                   = 0.0f;
+    bool  active                    = true;
+
+    COMPONENT_TYPE(MoonMiningSchedulerState)
+};
+
+/**
+ * @brief Structure fuel block management state
+ *
+ * Tracks fuel reserves for a structure (citadel, refinery, engineering
+ * complex, etc.).  Each fuel type has a quantity, max capacity, and per-
+ * second consumption rate.  The per-tick update drains fuel; when any
+ * reserve hits zero the structure enters an offline state.  A low-fuel
+ * warning fires when remaining fuel falls below low_fuel_threshold
+ * seconds of consumption.
+ */
+class FuelBlockState : public ecs::Component {
+public:
+    enum class FuelType { Standard, Nitrogen, Helium, Hydrogen, Oxygen };
+
+    struct FuelReserve {
+        std::string   reserve_id;
+        FuelType      fuel_type       = FuelType::Standard;
+        float         quantity        = 0.0f;
+        float         max_quantity    = 1000.0f;
+        float         consumption_rate = 1.0f; // units per second
+    };
+
+    std::string structure_id;
+    std::vector<FuelReserve> reserves;
+    int   max_reserves           = 5;
+    float low_fuel_threshold     = 3600.0f; // seconds of fuel remaining
+    bool  is_online              = true;
+    bool  low_fuel_warning       = false;
+    int   total_refuels          = 0;
+    float total_fuel_consumed    = 0.0f;
+    int   total_offline_events   = 0;
+    float elapsed                = 0.0f;
+    bool  active                 = true;
+
+    COMPONENT_TYPE(FuelBlockState)
+};
+
+class CargoContainerState : public ecs::Component {
+public:
+    enum class ContainerType { Jetcan, SmallSecure, MediumSecure, LargeSecure, Freight, Audit };
+
+    struct CargoItem {
+        std::string item_id;
+        std::string item_name;
+        int         quantity = 0;
+        float       volume   = 0.0f;
+    };
+
+    ContainerType              container_type = ContainerType::Jetcan;
+    std::string                owner_id;
+    std::string                password;
+    std::vector<CargoItem>     items;
+    float  capacity            = 27500.0f;
+    float  used_volume         = 0.0f;
+    bool   is_anchored         = false;
+    float  lifetime            = 7200.0f;
+    float  time_remaining      = 7200.0f;
+    int    total_items_added   = 0;
+    int    total_items_removed = 0;
+    float  elapsed             = 0.0f;
+    bool   active              = true;
+
+    COMPONENT_TYPE(CargoContainerState)
+};
+
+// ---------------------------------------------------------------------------
+// WalletJournalState — wallet transaction journal with running balance
+// ---------------------------------------------------------------------------
+/**
+ * @brief Tracks wallet transaction history with categorised entries.
+ *        Each entry records a transaction type, amount (positive = credit,
+ *        negative = debit), running balance at time of entry, and a
+ *        description.  Entries are capped at max_entries (default 200);
+ *        oldest are auto-purged when at capacity.  Lifetime counters
+ *        track total entries ever recorded, total credits, and total debits.
+ */
+class WalletJournalState : public ecs::Component {
+public:
+    enum class TransactionType {
+        Bounty, MissionReward, MarketBuy, MarketSell,
+        InsurancePayout, InsuranceCost, ContractPayment,
+        CorpTax, Donation, Transfer, RepairCost, Other
+    };
+
+    struct JournalEntry {
+        std::string     entry_id;
+        TransactionType type        = TransactionType::Other;
+        float           amount      = 0.0f;
+        float           balance     = 0.0f;  // balance after this entry
+        std::string     description;
+        std::string     counterparty;
+    };
+
+    std::string owner_id;
+    float       balance         = 0.0f;
+    std::vector<JournalEntry> entries;
+    int   max_entries           = 200;
+    int   total_entries_ever    = 0;
+    float total_credits         = 0.0f;
+    float total_debits          = 0.0f;
+    float elapsed               = 0.0f;
+    bool  active                = true;
+
+    COMPONENT_TYPE(WalletJournalState)
+};
+
+// InsuranceContractState — ship insurance contract management
+// ---------------------------------------------------------------------------
+/**
+ * @brief Manages ship insurance contracts with tier-based premiums and payouts.
+ */
+class InsuranceContractState : public ecs::Component {
+public:
+    enum class InsuranceTier {
+        Basic,
+        Standard,
+        Bronze,
+        Silver,
+        Gold,
+        Platinum
+    };
+
+    enum class ContractStatus {
+        Active,
+        Expired,
+        ClaimedPaid,
+        Cancelled
+    };
+
+    struct InsuranceContract {
+        std::string    contract_id;
+        std::string    ship_id;
+        InsuranceTier  tier           = InsuranceTier::Basic;
+        ContractStatus status         = ContractStatus::Active;
+        float          base_value     = 0.0f;
+        float          premium_paid   = 0.0f;
+        float          payout_ratio   = 0.4f;
+        float          time_remaining = 604800.0f;
+        float          created_at     = 0.0f;
+    };
+
+    std::string owner_id;
+    std::vector<InsuranceContract> contracts;
+    int   max_contracts          = 10;
+    float total_premiums_paid    = 0.0f;
+    float total_payouts_received = 0.0f;
+    int   total_claims           = 0;
+    float elapsed                = 0.0f;
+    bool  active                 = true;
+
+    COMPONENT_TYPE(InsuranceContractState)
 };
 
 } // namespace components

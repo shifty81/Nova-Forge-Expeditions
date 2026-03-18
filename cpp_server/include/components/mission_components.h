@@ -35,7 +35,7 @@ public:
         std::string type;          // "combat", "mining", "courier"
         std::string agent_faction;
         std::vector<Objective> objectives;
-        double isk_reward = 0.0;
+        double isc_reward = 0.0;
         double lp_reward = 0.0;
         float standing_reward = 0.0f;
         float time_remaining = -1.0f;  // seconds, -1 = no limit
@@ -178,8 +178,8 @@ public:
     std::vector<ObjectiveTemplate> objective_templates;
 
     // Reward scaling
-    double base_isk = 100000.0;
-    double isk_per_level = 50000.0;
+    double base_isc = 100000.0;
+    double isc_per_level = 50000.0;
     float base_standing_reward = 0.1f;
     float standing_per_level = 0.05f;
     float base_time_limit = 3600.0f; // seconds, -1 = no limit
@@ -267,6 +267,67 @@ public:
     bool active = true;
 
     COMPONENT_TYPE(ProceduralMissionGenerator)
+};
+
+/**
+ * @brief Mission reward tracker for collecting completion rewards
+ */
+class MissionReward : public ecs::Component {
+public:
+    struct RewardEntry {
+        std::string mission_id;
+        double isc_amount = 0.0;
+        double standing_change = 0.0;
+        std::string faction_id;
+        std::string item_id;
+        int item_quantity = 0;
+        bool collected = false;
+        float collected_at = 0.0f;
+    };
+
+    int max_pending = 50;
+    float elapsed = 0.0f;
+    bool active = true;
+    int total_collected = 0;
+    double total_isc_earned = 0.0;
+    double total_standing_gained = 0.0;
+    std::vector<RewardEntry> rewards;
+
+    COMPONENT_TYPE(MissionReward)
+};
+
+// ---------------------------------------------------------------------------
+// AgentMissionState — NPC agent mission lifecycle management
+// ---------------------------------------------------------------------------
+class AgentMissionState : public ecs::Component {
+public:
+    enum class MissionStatus { Offered, Active, Completed, Failed, Expired };
+    enum class MissionType  { Combat, Courier, Mining, Exploration };
+
+    struct AgentMission {
+        std::string   mission_id;
+        std::string   mission_name;
+        std::string   agent_id;
+        MissionStatus status          = MissionStatus::Offered;
+        MissionType   type            = MissionType::Combat;
+        float         isk_reward      = 0.0f;
+        int           lp_reward       = 0;
+        float         time_limit      = 3600.0f;
+        float         time_elapsed    = 0.0f;
+        int           offered_count   = 1;
+    };
+
+    std::vector<AgentMission> missions;
+    int   max_missions      = 20;
+    float total_isk_earned  = 0.0f;
+    int   total_lp_earned   = 0;
+    int   total_completed   = 0;
+    int   total_failed      = 0;
+    int   total_expired     = 0;
+    float elapsed           = 0.0f;
+    bool  active            = true;
+
+    COMPONENT_TYPE(AgentMissionState)
 };
 
 } // namespace components

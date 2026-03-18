@@ -2,7 +2,7 @@
 #define NOVAFORGE_SYSTEMS_CAPACITOR_SYSTEM_H
 
 #include "ecs/single_component_system.h"
-#include "components/game_components.h"
+#include "components/core_components.h"
 #include <string>
 
 namespace atlas {
@@ -16,7 +16,7 @@ namespace systems {
  */
 class CapacitorSystem : public ecs::SingleComponentSystem<components::Capacitor> {
 public:
-    using SingleComponentSystem::SingleComponentSystem;
+    explicit CapacitorSystem(ecs::World* world);
     ~CapacitorSystem() override = default;
     
     std::string getName() const override { return "CapacitorSystem"; }
@@ -37,8 +37,7 @@ public:
     float getCapacitorPercentage(const std::string& entity_id) const;
 
 protected:
-    void processEntity(ecs::Entity* entity, components::Capacitor* cap,
-                       float dt) override;
+    void updateComponent(ecs::Entity& entity, components::Capacitor& cap, float delta_time) override;
 };
 
 } // namespace systems

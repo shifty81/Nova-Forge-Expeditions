@@ -887,6 +887,649 @@ public:
     COMPONENT_TYPE(ScanProbe)
 };
 
+// ==================== Loot Container ====================
+
+/**
+ * @brief Manages loot containers from wrecks and exploration sites
+ *
+ * Tracks container contents with expiry timers. Supports access control
+ * via owner, blue-tag sharing, and abandonment mechanics.
+ */
+class LootContainer : public ecs::Component {
+public:
+    struct LootItem {
+        std::string item_id;
+        std::string name;
+        std::string category;    // "Module", "Ammo", "Ore", "Salvage", "DataCore"
+        int quantity = 1;
+        float volume = 1.0f;     // m3 per unit
+        float value = 0.0f;      // estimated ISC value
+    };
+
+    std::string container_id;
+    std::string owner_id;
+    std::string source_type;     // "Wreck", "Anomaly", "Mission", "PlayerJettison"
+    std::vector<LootItem> items;
+    int max_items = 30;
+    float expiry_duration = 7200.0f;   // 2 hours default
+    float time_remaining = 7200.0f;
+    float total_value = 0.0f;
+    float total_volume = 0.0f;
+    int total_looted = 0;
+    bool is_abandoned = false;
+    bool is_locked = false;
+    bool active = true;
+
+    COMPONENT_TYPE(LootContainer)
+};
+
+// ==================== Mining Laser Cycle ====================
+
+/**
+ * @brief Mining laser cycle tracking with progress, yield, and cargo transfer
+ *
+ * Tracks individual mining laser activation cycles on a target asteroid.
+ * Each cycle extracts ore based on yield rate and transfers to cargo hold.
+ */
+class MiningLaserCycle : public ecs::Component {
+public:
+    struct ActiveCycle {
+        std::string laser_id;
+        std::string target_asteroid_id;
+        std::string ore_type;
+        float cycle_time = 10.0f;        // seconds per cycle
+        float progress = 0.0f;           // 0.0 to 1.0
+        float yield_per_cycle = 100.0f;  // units of ore per completed cycle
+        bool completed = false;
+    };
+
+    std::vector<ActiveCycle> cycles;
+    std::string cargo_entity_id;         // entity holding cargo for ore deposit
+    int max_active_lasers = 3;
+    int total_cycles_completed = 0;
+    float total_ore_mined = 0.0f;
+    float cargo_capacity = 5000.0f;
+    float cargo_used = 0.0f;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(MiningLaserCycle)
+};
+
+/**
+ * @brief Tracks ore processing / refining state per entity
+ *
+ * When raw ore is mined, it enters a processing queue. Each tick the
+ * system converts queued ore into refined materials at a configurable
+ * efficiency rate, depositing results into the entity's cargo manifest.
+ */
+class OreProcessing : public ecs::Component {
+public:
+    struct OreJob {
+        std::string ore_type;
+        float raw_amount = 0.0f;
+        float refined_amount = 0.0f;
+        float progress = 0.0f;        // 0.0 to 1.0
+        float processing_time = 30.0f; // seconds per batch
+        bool completed = false;
+    };
+
+    std::vector<OreJob> jobs;
+    float efficiency = 0.75f;           // 75% yield by default
+    float processing_speed = 1.0f;     // multiplier on processing rate
+    int max_concurrent_jobs = 2;
+    int total_batches_completed = 0;
+    float total_raw_processed = 0.0f;
+    float total_refined_output = 0.0f;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(OreProcessing)
+};
+
+// ==================== Anomaly Escalation ====================
+
+/**
+ * @brief Tracks combat anomaly escalation for PvE content progression
+ *
+ * When a player clears an anomaly site, the system may trigger a harder
+ * follow-up site (escalation).  Each escalation tier increases NPC
+ * difficulty, reward multiplier, and may change site type.
+ */
+class AnomalyEscalation : public ecs::Component {
+public:
+    enum class EscalationState { Idle, SiteActive, Cleared, Escalating, EscalationReady, Failed };
+
+    struct EscalationTier {
+        int tier = 0;                    // 0 = base, 1-5 = escalation tiers
+        std::string site_type;           // e.g. "Combat", "Relic", "Data"
+        float difficulty_multiplier = 1.0f;
+        float reward_multiplier = 1.0f;
+        int npc_count = 5;
+        bool completed = false;
+    };
+
+    std::vector<EscalationTier> tiers;
+    EscalationState state = EscalationState::Idle;
+    int current_tier = 0;
+    float escalation_chance = 0.3f;      // 30% chance to escalate per clear
+    float escalation_timer = 0.0f;       // countdown until escalation spawns
+    float escalation_delay = 10.0f;      // seconds before escalation spawns
+    std::string system_id;               // star system this anomaly is in
+    std::string owner_id;                // player who triggered escalation
+    int max_tiers = 5;
+    int total_sites_cleared = 0;
+    int total_escalations_triggered = 0;
+    int total_escalations_completed = 0;
+    int total_escalations_failed = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(AnomalyEscalation)
+};
+
+// ==================== Asteroid Respawn System ====================
+
+/**
+ * @brief Manages asteroid belt regeneration over time
+ *
+ * Tracks depletion percentage per belt and gradually respawns asteroids
+ * so the mining loop is sustainable.  Respawn rate is configurable per
+ * belt and scales with total depletion.
+ */
+class AsteroidRespawn : public ecs::Component {
+public:
+    enum class RespawnState { Active, Depleted, Regenerating, Full };
+
+    std::string belt_id;
+    std::string system_id;
+    RespawnState state = RespawnState::Full;
+    int total_asteroids = 20;           // current count
+    int max_asteroids = 20;             // belt capacity
+    int depleted_count = 0;             // how many are depleted
+    float depletion_pct = 0.0f;         // 0.0-1.0 fraction of belt mined
+    float respawn_rate = 0.01f;         // asteroids per second regeneration
+    float respawn_accumulator = 0.0f;   // fractional respawn accumulator
+    float regeneration_delay = 60.0f;   // seconds after depletion before respawn starts
+    float delay_timer = 0.0f;           // current delay countdown
+    int total_respawned = 0;            // lifetime count of respawned asteroids
+    int total_depleted = 0;             // lifetime count of mined-out asteroids
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(AsteroidRespawn)
+};
+
+/**
+ * @brief Sector map fog-of-war discovery state
+ *
+ * Tracks which sectors have been discovered (visibility 0=hidden,
+ * 1=partial, 2=full) and visit counts for exploration metrics.
+ */
+class SectorMapDiscovery : public ecs::Component {
+public:
+    struct DiscoveredSector {
+        std::string sector_id;
+        std::string sector_name;
+        int visibility = 0;     // 0=hidden, 1=partial, 2=full
+        int visit_count = 0;
+        float discovery_time = 0.0f;
+    };
+
+    std::vector<DiscoveredSector> sectors;
+    int max_sectors = 100;
+    int total_discoveries = 0;
+    int total_visits = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(SectorMapDiscovery)
+};
+
+/**
+ * @brief Dynamic anomaly spawning state for a star system
+ *
+ * Controls the periodic spawning and despawning of combat and
+ * exploration anomalies.  Anomaly count scales with system security
+ * level (more in null-sec) and player activity.
+ */
+class AnomalySpawningState : public ecs::Component {
+public:
+    enum class AnomalyType { Combat, Gas, Relic, Data, Wormhole };
+
+    struct SpawnedAnomaly {
+        std::string anomaly_id;
+        AnomalyType type = AnomalyType::Combat;
+        int difficulty = 1;          // 1–5
+        float lifetime = 0.0f;       // seconds alive
+        float max_lifetime = 3600.0f; // 1 hour default
+        bool completed = false;
+    };
+
+    std::string system_id;
+    float security_level = 0.5f;        // determines max anomalies
+    int base_max_anomalies = 3;
+    int max_anomalies = 3;              // adjusted by security
+    float spawn_interval = 300.0f;      // seconds between spawn checks
+    float spawn_timer = 0.0f;
+    float despawn_check_interval = 60.0f;
+    float despawn_timer = 0.0f;
+    std::vector<SpawnedAnomaly> anomalies;
+    int total_spawned = 0;
+    int total_completed = 0;
+    int total_despawned = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(AnomalySpawningState)
+};
+
+// ==================== Sleeper AI ====================
+
+/**
+ * @brief Sleeper NPC artificial intelligence state
+ *
+ * Models the advanced AI behaviour of Sleeper drones found in wormhole
+ * space.  Sleepers have coordinated target selection, remote-repair
+ * capability, and escalation mechanics where reinforcements warp in
+ * when the player inflicts enough damage.
+ */
+class SleeperAIState : public ecs::Component {
+public:
+    enum class SleeperRole { Sentry, Escort, Guardian, Warden };
+    enum class AlertLevel { Dormant, Alerted, Combat, Escalated };
+
+    struct SleeperUnit {
+        std::string unit_id;
+        SleeperRole role = SleeperRole::Sentry;
+        float hp = 1000.0f;
+        float max_hp = 1000.0f;
+        float dps = 150.0f;
+        float remote_rep_amount = 0.0f;  // per second if Guardian
+        std::string current_target;
+        bool alive = true;
+    };
+
+    std::string site_id;
+    AlertLevel alert_level = AlertLevel::Dormant;
+    std::vector<SleeperUnit> units;
+    int max_units = 10;
+    float damage_threshold = 2000.0f;     // total damage to trigger escalation
+    float damage_taken = 0.0f;
+    float escalation_cooldown = 60.0f;    // seconds between escalation waves
+    float escalation_timer = 0.0f;
+    int escalation_wave = 0;
+    int max_escalation_waves = 3;
+    float target_switch_interval = 5.0f;  // coordinated re-targeting
+    float target_switch_timer = 0.0f;
+    int total_kills = 0;
+    int total_losses = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(SleeperAIState)
+};
+
+// ==================== Sleeper Cache ====================
+
+/**
+ * @brief Sleeper cache site state
+ *
+ * Models hidden exploration sites in wormhole space containing
+ * valuable Sleeper technology.  Each cache has multiple rooms
+ * with hacking containers and sentry turrets.  Players must hack
+ * containers while avoiding damage from turrets.
+ */
+class SleeperCacheState : public ecs::Component {
+public:
+    enum class CacheTier { Limited, Standard, Superior };
+    enum class RoomStatus { Locked, Open, Cleared, Failed };
+
+    struct Container {
+        std::string container_id;
+        float hack_difficulty = 40.0f;   // coherence points
+        float hack_progress = 0.0f;
+        float loot_value = 0.0f;         // ISK value estimate
+        bool hacked = false;
+        bool exploded = false;            // failed hack → explosion
+    };
+
+    struct CacheRoom {
+        std::string room_id;
+        RoomStatus status = RoomStatus::Locked;
+        std::vector<Container> containers;
+        int sentry_count = 2;
+        float sentry_dps = 100.0f;
+        float sentry_range = 30000.0f;   // meters
+        bool sentries_alive = true;
+    };
+
+    std::string site_id;
+    CacheTier tier = CacheTier::Limited;
+    std::vector<CacheRoom> rooms;
+    int max_rooms = 3;
+    float time_limit = 600.0f;           // seconds before site despawns
+    float time_remaining = 600.0f;
+    float total_loot_value = 0.0f;
+    int containers_hacked = 0;
+    int containers_failed = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+    bool expired = false;
+
+    COMPONENT_TYPE(SleeperCacheState)
+};
+
+// ==================== Abyssal Filament ====================
+
+/**
+ * @brief Abyssal Deadspace filament state
+ *
+ * Tracks a pilot's progress through an Abyssal Deadspace run.
+ * Activating a filament opens a series of up to three sequential
+ * time-limited pockets.  All pockets must be cleared before the
+ * overall timer expires or the pilot is destroyed.
+ */
+class AbyssalFilamentState : public ecs::Component {
+public:
+    enum class FilamentType { Electrical, DarkMatter, ExoticPlasma, Gamma, Firestorm };
+    enum class Tier { T1 = 1, T2, T3, T4, T5 };
+
+    struct PocketEntry {
+        std::string pocket_id;
+        FilamentType type = FilamentType::Electrical;
+        Tier tier = Tier::T1;
+        float time_limit = 1200.0f;    // seconds (20 min)
+        float time_remaining = 1200.0f;
+        bool completed = false;
+        bool failed = false;           // timer expired
+    };
+
+    std::string pilot_id;
+    std::vector<PocketEntry> pockets;  // up to max_pockets entries
+    int current_pocket = 0;            // 0-based index into pockets
+    int max_pockets = 3;
+    int filaments_consumed = 0;
+    int pockets_completed = 0;
+    int pockets_failed = 0;
+    float elapsed = 0.0f;
+    bool active = false;               // false until filament activated
+
+    COMPONENT_TYPE(AbyssalFilamentState)
+};
+
+// ==================== Abyssal Weather ====================
+
+/**
+ * @brief Abyssal Deadspace weather effect state
+ *
+ * Each Abyssal pocket has a weather type that applies global
+ * modifiers to ship systems.  Intensity scales with filament tier.
+ */
+class AbyssalWeatherState : public ecs::Component {
+public:
+    enum class WeatherType { None, Electrical, DarkMatter, ExoticPlasma, Gamma, Firestorm };
+
+    struct WeatherEffect {
+        float turret_optimal_modifier = 1.0f;
+        float missile_velocity_modifier = 1.0f;
+        float drone_speed_modifier = 1.0f;
+        float shield_hp_modifier = 1.0f;
+        float armor_hp_modifier = 1.0f;
+        float hull_hp_modifier = 1.0f;
+        float capacitor_recharge_modifier = 1.0f;
+        float propulsion_modifier = 1.0f;
+        float ew_strength_modifier = 1.0f;
+        float visibility_modifier = 1.0f;
+    };
+
+    std::string pocket_id;
+    WeatherType current_weather = WeatherType::None;
+    WeatherEffect effect;
+    int tier = 1;
+    float intensity = 0.0f;  // 0 until weather is set; 1.0 at T1 → 5.0 at T5
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(AbyssalWeatherState)
+};
+
+// ==================== Abyssal Escalation ====================
+
+/**
+ * @brief Abyssal Deadspace pocket escalation state
+ *
+ * Each pocket contains three sequential waves of Triglavian NPCs.
+ * The third wave spawns a boss whose loot scales with filament tier.
+ * Completing all waves unlocks the exit filament.
+ */
+class AbyssalEscalationState : public ecs::Component {
+public:
+    enum class EscalationPhase { Wave1, Wave2, Boss };
+
+    struct WaveConfig {
+        int npc_count = 5;
+        float npc_base_hp = 5000.0f;
+        float npc_base_dps = 200.0f;
+        bool completed = false;
+    };
+
+    std::string pocket_id;
+    EscalationPhase current_phase = EscalationPhase::Wave1;
+    std::vector<WaveConfig> waves;  // indices 0-2: Wave1, Wave2, Boss
+    int tier = 1;
+    bool boss_spawned = false;
+    bool boss_killed = false;
+    bool run_completed = false;
+    float dps_received = 0.0f;
+    int enemies_killed = 0;
+    int total_loot_value = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(AbyssalEscalationState)
+};
+
+// ---------------------------------------------------------------------------
+// SignatureAnalysisState — probe scanner signature tracking
+// ---------------------------------------------------------------------------
+class SignatureAnalysisState : public ecs::Component {
+public:
+    enum class SigType { Anomaly, Relic, Data, Gas, Wormhole, Combat };
+
+    struct Signature {
+        std::string sig_id;
+        std::string sig_name;
+        SigType     type                    = SigType::Anomaly;
+        float       strength                = 100.0f;  // 0–100
+        float       scan_progress           = 0.0f;    // 0–100
+        float       scan_strength_required  = 10.0f;
+        bool        identified              = false;
+    };
+
+    std::vector<Signature> signatures;
+    int   max_signatures        = 50;
+    float scan_contribution     = 10.0f;
+    int   total_identified      = 0;
+    float elapsed               = 0.0f;
+    bool  active                = true;
+
+    COMPONENT_TYPE(SignatureAnalysisState)
+};
+
+// ---------------------------------------------------------------------------
+// SectorTensionState — sector tension level tracking
+// ---------------------------------------------------------------------------
+/**
+ * @brief Tracks the aggregate tension level inside a star-system sector.
+ *
+ * Tension is raised by discrete events (pirate raids, corporate conflicts,
+ * etc.) and decays passively over time.  Each TensionEvent carries its own
+ * decay_rate and time_remaining; when time_remaining reaches zero the event
+ * is removed.  The rolling tension_level drives NPC behaviour changes,
+ * patrol frequency increases, and background simulation effects.
+ */
+class SectorTensionState : public ecs::Component {
+public:
+    enum class TensionType {
+        PirateRaid,
+        CorporateConflict,
+        EconomicStress,
+        MilitaryPresence,
+        Disaster,
+        Smuggling
+    };
+
+    struct TensionEvent {
+        std::string  event_id;
+        TensionType  type           = TensionType::PirateRaid;
+        float        magnitude      = 10.0f;  // tension points added
+        float        decay_rate     = 1.0f;   // points/second removed from tension
+        float        time_remaining = 300.0f; // seconds until event expires
+    };
+
+    std::string sector_id;
+    std::vector<TensionEvent> events;
+    float tension_level       = 0.0f;
+    float max_tension         = 100.0f;
+    float passive_decay_rate  = 0.01f;  // points/second passive decay
+    int   max_events          = 20;
+    int   total_events_recorded = 0;
+    float elapsed             = 0.0f;
+    bool  active              = true;
+
+    COMPONENT_TYPE(SectorTensionState)
+};
+
+// SpaceScarState
+class SpaceScarState : public ecs::Component {
+public:
+    enum class ScarType { WreckField, BurnedStation, FailedColony, Battlefield, CelestialGraveyard, SignalAnomaly };
+    enum class DiscoverySource { Player, AI, Event, Unknown };
+
+    struct SpaceScar {
+        std::string scar_id;
+        std::string name;
+        ScarType scar_type = ScarType::WreckField;
+        DiscoverySource discovery_source = DiscoverySource::Unknown;
+        std::string location_label;
+        std::string first_discoverer;
+        int mention_count = 0;
+        bool is_officially_named = false;
+        std::string notes;
+    };
+
+    std::vector<SpaceScar> scars;
+    int max_scars = 50;
+    int total_discovered = 0;
+    int total_mentions = 0;
+    std::string system_id;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(SpaceScarState)
+};
+
+// SystemEventState
+class SystemEventState : public ecs::Component {
+public:
+    enum class SystemEventType { PirateSurge, TradeShortage, SecurityLockdown, FactionWarning, MigrationWave, RadiationStorm, ResourceBoom };
+
+    struct SystemEvent {
+        std::string event_id;
+        SystemEventType event_type = SystemEventType::PirateSurge;
+        float severity = 0.5f;
+        float duration = 300.0f;
+        float time_remaining = 300.0f;
+        bool is_active = true;
+        float trigger_value = 0.0f;
+    };
+
+    float threat_level = 0.3f;
+    float economy_health = 0.7f;
+    float security_level = 0.6f;
+    float trade_volume = 0.5f;
+
+    float pirate_surge_threshold = 0.7f;
+    float shortage_threshold = 0.3f;
+    float lockdown_threshold = 0.2f;
+    float boom_threshold = 0.8f;
+
+    std::vector<SystemEvent> events;
+    int max_events = 10;
+    int total_events_fired = 0;
+    int total_events_resolved = 0;
+    std::string system_id;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(SystemEventState)
+};
+
+class GalacticNewsState : public ecs::Component {
+public:
+    enum class NewsCategory {
+        Conflict, Economic, Political, Anomaly, Exploration, Disaster
+    };
+
+    struct NewsEntry {
+        std::string  entry_id;
+        std::string  headline;
+        std::string  source_system;
+        NewsCategory category = NewsCategory::Conflict;
+        float        age_seconds = 0.0f;
+        bool         is_expired  = false;
+    };
+
+    std::vector<NewsEntry> news;
+    int   max_entries      = 100;
+    float news_decay_rate  = 1.0f;
+    float expiry_threshold = 86400.0f;
+    int   total_published  = 0;
+    int   total_expired    = 0;
+    std::string system_id;
+    float elapsed          = 0.0f;
+    bool  active           = true;
+
+    COMPONENT_TYPE(GalacticNewsState)
+};
+
+// AmbientEventState
+// Non-combat ambient events for a star system (Phase E — Living Galaxy Simulation).
+// Covers nav beacon malfunctions, station lockdowns, radiation storms, distress
+// beacons, and salvage field appearances. Events have a TTL and an intensity (0–1).
+class AmbientEventState : public ecs::Component {
+public:
+    enum class AmbientEventType {
+        NavBeaconMalfunction,
+        StationLockdown,
+        RadiationStorm,
+        DistressBeacon,
+        SalvageFieldAppearance,
+        TrafficJam
+    };
+
+    struct AmbientEvent {
+        std::string     event_id;
+        AmbientEventType event_type = AmbientEventType::NavBeaconMalfunction;
+        float           intensity   = 1.0f;   // 0–1
+        float           duration    = 60.0f;
+        float           time_remaining = 60.0f;
+        bool            is_resolved = false;
+    };
+
+    std::vector<AmbientEvent> events;
+    int   max_events = 20;
+    int   total_events_fired  = 0;
+    int   total_events_resolved = 0;
+
+    std::string system_id;
+    float elapsed = 0.0f;
+    bool  active  = true;
+
+    COMPONENT_TYPE(AmbientEventState)
+};
+
 } // namespace components
 } // namespace atlas
 

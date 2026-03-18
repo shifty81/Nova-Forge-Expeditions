@@ -129,7 +129,7 @@ public:
     };
 
     std::vector<LootEntry> entries;
-    double isk_drop = 0.0;     // Credits bounty
+    double isc_drop = 0.0;     // Credits bounty
 
     COMPONENT_TYPE(LootTable)
 };
@@ -719,7 +719,7 @@ public:
     }
 
     static double getUpgradeCostForTier(int t) {
-        return 1000.0 * std::pow(2.0, std::max(1, t) - 1);
+        return 1000.0 * std::pow(2.0, (std::max)(1, t) - 1);
     }
 
     static std::string tierToString(int t) {
@@ -903,6 +903,769 @@ public:
     bool active = true;
     
     COMPONENT_TYPE(ModuleCascadingFailure)
+};
+
+/**
+ * @brief Unified cargo manifest with volume tracking and ore hold separation
+ */
+class CargoManifest : public ecs::Component {
+public:
+    struct CargoItem {
+        std::string item_id;
+        std::string item_name;
+        std::string category;     // "ore", "mineral", "module", "ammo", "salvage"
+        int quantity = 0;
+        double volume_per_unit = 1.0;
+    };
+
+    double general_capacity = 400.0;   // m³
+    double general_used = 0.0;
+    double ore_hold_capacity = 0.0;    // 0 = no ore hold
+    double ore_hold_used = 0.0;
+    bool active = true;
+    std::vector<CargoItem> items;
+
+    COMPONENT_TYPE(CargoManifest)
+};
+
+/**
+ * @brief Saved ship loadout for persistence and quick-swap
+ */
+class SavedLoadout : public ecs::Component {
+public:
+    struct ModuleSlot {
+        std::string module_id;
+        std::string module_name;
+        int slot_index = 0;
+        std::string slot_type;   // "high", "mid", "low", "rig"
+        bool online = true;
+    };
+
+    struct Loadout {
+        std::string loadout_id;
+        std::string loadout_name;
+        std::string ship_class;
+        float saved_at = 0.0f;
+        std::vector<ModuleSlot> modules;
+    };
+
+    int max_loadouts = 10;
+    float elapsed = 0.0f;
+    bool active = true;
+    std::string active_loadout_id;
+    std::vector<Loadout> loadouts;
+
+    COMPONENT_TYPE(SavedLoadout)
+};
+
+/**
+ * @brief Tracks per-entity heat state for module thermal management
+ *
+ * Weapons and active modules generate heat each cycle.  The system dissipates
+ * heat each tick based on the entity's radiator capacity.  At high heat levels
+ * penalties apply: accuracy degrades above 75% and modules force-offline at 100%.
+ */
+class ThermalState : public ecs::Component {
+public:
+    float current_heat = 0.0f;
+    float max_heat = 100.0f;
+    float dissipation_rate = 5.0f;      // heat units per second
+    float heat_warning_threshold = 0.75f; // fraction of max_heat
+    float overheat_threshold = 1.0f;     // fraction of max_heat
+    int modules_overheated = 0;
+    int total_overheat_events = 0;
+    float total_heat_generated = 0.0f;
+    float total_heat_dissipated = 0.0f;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(ThermalState)
+};
+
+/**
+ * @brief Tracks runtime CPU and powergrid budget for fitted modules
+ *
+ * Enforces that active modules do not exceed the ship's available CPU
+ * and powergrid.  Modules that would push the budget over limit are
+ * rejected.  If a reactor is damaged and total PG drops, excess modules
+ * are forced offline.
+ */
+class ModulePowerGrid : public ecs::Component {
+public:
+    struct FittedModule {
+        std::string module_id;
+        std::string module_name;
+        float cpu_usage = 0.0f;
+        float pg_usage = 0.0f;
+        bool online = true;
+    };
+
+    std::vector<FittedModule> modules;
+    float total_cpu = 100.0f;
+    float total_pg = 200.0f;
+    float cpu_used = 0.0f;
+    float pg_used = 0.0f;
+    int modules_forced_offline = 0;
+    int total_overload_events = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(ModulePowerGrid)
+};
+
+// ==================== Ship Repair Cost ====================
+
+/**
+ * @brief Tracks cumulative repair costs from combat damage
+ *
+ * As a ship takes damage, repair cost accumulates based on damage type
+ * and layer (shield/armor/hull).  Upon docking, costs can be applied
+ * to the player's wallet.  Hull repairs cost more than armor, which
+ * costs more than shield.
+ */
+class ShipRepairCost : public ecs::Component {
+public:
+    struct DamageRecord {
+        std::string source_id;
+        float shield_damage = 0.0f;
+        float armor_damage = 0.0f;
+        float hull_damage = 0.0f;
+        float timestamp = 0.0f;
+    };
+
+    std::vector<DamageRecord> damage_records;
+    float shield_cost_rate = 1.0f;       // ISC per point of shield damage
+    float armor_cost_rate = 3.0f;        // ISC per point of armor damage
+    float hull_cost_rate = 10.0f;        // ISC per point of hull damage
+    double total_repair_cost = 0.0;      // accumulated repair ISC cost
+    double total_isc_spent_on_repairs = 0.0;
+    float discount_rate = 0.0f;          // 0.0 = no discount, 0.5 = 50% off
+    bool docked = false;                 // repair only applies when docked
+    int total_repairs_completed = 0;
+    int total_damage_events = 0;
+    int max_records = 100;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(ShipRepairCost)
+};
+
+/**
+ * @brief Ship insurance policy tracking
+ *
+ * Players can purchase insurance on their ship.  If the ship is destroyed
+ * while the policy is active the insured payout is awarded.  Policies
+ * expire after a configurable duration and only one tier may be active
+ * at a time.
+ */
+class InsuranceClaim : public ecs::Component {
+public:
+    enum class PolicyState { Uninsured, Active, ClaimPending, ClaimPaid, Expired };
+
+    struct PolicyTier {
+        std::string tier_name;       // e.g. "Basic", "Standard", "Platinum"
+        double premium_cost = 0.0;   // ISC cost to buy
+        double payout_amount = 0.0;  // ISC received on destruction
+        float duration = 3600.0f;    // seconds the policy lasts
+    };
+
+    std::vector<PolicyTier> available_tiers;
+    PolicyState state = PolicyState::Uninsured;
+    std::string active_tier_name;
+    double active_payout = 0.0;
+    double active_premium_paid = 0.0;
+    float policy_time_remaining = 0.0f;
+    std::string ship_id;
+    std::string owner_id;
+    double total_premiums_paid = 0.0;
+    double total_payouts_received = 0.0;
+    int total_claims = 0;
+    int total_policies_purchased = 0;
+    int total_policies_expired = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(InsuranceClaim)
+};
+
+/**
+ * @brief Ship crew management with hiring, morale and role bonuses
+ *
+ * Tracks crew members assigned to a ship, their roles, morale levels,
+ * and the aggregate bonuses they provide to ship performance.  Low
+ * morale reduces efficiency; high morale grants bonus multipliers.
+ */
+class CrewManagement : public ecs::Component {
+public:
+    enum class CrewRole { Pilot, Engineer, Gunner, Navigator, Medic, ScienceOfficer };
+    enum class MoraleLevel { Mutinous, Low, Normal, High, Exceptional };
+
+    struct CrewMember {
+        std::string name;
+        CrewRole role = CrewRole::Pilot;
+        int skill_level = 1;         // 1-10
+        float morale = 0.5f;         // 0.0 = mutinous, 1.0 = exceptional
+        float salary_per_hour = 10.0f;
+        bool assigned = false;
+    };
+
+    std::vector<CrewMember> crew;
+    int max_crew = 10;
+    float average_morale = 0.5f;
+    float efficiency_multiplier = 1.0f;  // derived from morale + skills
+    double total_salary_paid = 0.0;
+    int total_hired = 0;
+    int total_dismissed = 0;
+    float salary_timer = 0.0f;
+    float salary_interval = 3600.0f;     // pay every hour (game time)
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(CrewManagement)
+};
+
+/**
+ * @brief Ship maintenance and wear tracking
+ *
+ * Tracks hull and module degradation over time.  Ships accumulate
+ * wear from combat, warping, and normal operation.  When wear
+ * exceeds threshold levels the ship suffers performance penalties.
+ * Repairs are scheduled at stations for an ISC cost.
+ */
+class ShipMaintenance : public ecs::Component {
+public:
+    enum class Condition { Pristine, Good, Fair, Poor, Critical };
+
+    struct RepairOrder {
+        std::string module_name;
+        double cost = 0.0;
+        float time_required = 0.0f;
+        float time_elapsed = 0.0f;
+        bool completed = false;
+    };
+
+    std::string ship_id;
+    Condition condition = Condition::Pristine;
+    float hull_integrity = 1.0f;           // 0.0–1.0
+    float wear_rate = 0.001f;              // wear per second while active
+    float combat_wear_rate = 0.01f;        // additional wear per second in combat
+    float performance_penalty = 0.0f;      // 0.0–1.0, derived from condition
+    std::vector<RepairOrder> repair_queue;
+    double total_repair_cost = 0.0;
+    int total_repairs_completed = 0;
+    float elapsed = 0.0f;
+    bool in_combat = false;
+    bool docked = false;
+    bool active = true;
+
+    COMPONENT_TYPE(ShipMaintenance)
+};
+
+/**
+ * @brief Ship fuel tank and consumption tracking
+ *
+ * Manages fuel levels for ships.  Warp drives and thrusters consume
+ * fuel at different rates.  Ships with empty tanks cannot warp and
+ * have reduced thruster output.  Fuel is purchased at stations.
+ */
+class FuelTank : public ecs::Component {
+public:
+    enum class FuelType { Standard, HighGrade, Experimental };
+
+    std::string ship_id;
+    FuelType fuel_type = FuelType::Standard;
+    double current_fuel = 100.0;         // current units
+    double max_fuel = 100.0;             // capacity
+    double warp_consumption_rate = 5.0;  // units per warp second
+    double thrust_consumption_rate = 0.5;// units per thrust second
+    double idle_consumption_rate = 0.01; // units per second idling
+    bool warping = false;
+    bool thrusting = false;
+    double total_fuel_consumed = 0.0;
+    double total_fuel_purchased = 0.0;
+    int refuel_count = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(FuelTank)
+};
+
+// ==================== Tractor Beam ====================
+
+class TractorBeam : public ecs::Component {
+public:
+    std::string target_id;
+    float range = 20000.0f;          // meters — max pull range
+    float pull_speed = 500.0f;       // m/s toward ship
+    float current_distance = 0.0f;
+    float collection_distance = 50.0f;  // auto-collect threshold
+    int items_collected = 0;
+    int items_failed = 0;
+    bool locked = false;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(TractorBeam)
+};
+
+// ==================== Asteroid Mining Laser ====================
+
+/**
+ * @brief Active mining laser state — ore extraction and yield tracking
+ *
+ * Manages a set of mining lasers fitted to a ship.  Each laser has a
+ * cycle time, yield per cycle, and an optional crystal that modifies
+ * yield.  The update tick advances active cycles and accumulates ore
+ * mined into the hold (up to cargo capacity).
+ */
+class AsteroidMiningLaser : public ecs::Component {
+public:
+    struct MiningLaser {
+        std::string laser_id;
+        std::string crystal_id;          // empty = no crystal
+        float yield_per_cycle = 10.0f;   // m3 ore per cycle
+        float crystal_bonus = 0.0f;      // multiplier bonus (e.g. 0.625 = +62.5%)
+        float cycle_time = 60.0f;        // seconds per cycle
+        float cycle_progress = 0.0f;     // 0.0–cycle_time
+        bool cycling = false;
+    };
+
+    std::vector<MiningLaser> lasers;
+    std::string target_asteroid_id;
+    int max_lasers = 3;
+    double ore_hold_capacity = 5000.0;   // m3
+    double ore_hold_current = 0.0;       // m3
+    double total_ore_mined = 0.0;
+    int total_cycles_completed = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(AsteroidMiningLaser)
+};
+
+// ==================== Power Grid Management ====================
+
+/**
+ * @brief Ship power grid budget tracking
+ *
+ * Tracks total powergrid (MW) output and per-module power draw.
+ * Modules may be onlined/offlined.  Overloaded grid triggers an
+ * automatic module shutdown (lowest-priority first) each tick.
+ */
+class PowerGridState : public ecs::Component {
+public:
+    struct FittedModule {
+        std::string module_id;
+        float power_draw = 0.0f;    // MW
+        int priority = 5;           // 1 = lowest, 10 = highest
+        bool online = false;
+    };
+
+    std::vector<FittedModule> modules;
+    int max_modules = 12;
+    float total_output = 1000.0f;   // MW available
+    float total_draw = 0.0f;        // MW currently consumed
+    int total_overloads = 0;
+    int total_onlined = 0;
+    int total_offlined = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(PowerGridState)
+};
+
+// ==================== Salvage Drone ====================
+
+/**
+ * @brief Salvage drone bay — autonomous wreck salvaging
+ *
+ * Manages a bay of salvage drones that can be deployed to wrecks.
+ * Each drone locks a wreck, cycles a salvage attempt, and on success
+ * deposits the recovered material into the ship's hold.
+ */
+class SalvageDroneBay : public ecs::Component {
+public:
+    enum class DroneState { Idle, Deployed, Salvaging, Returning };
+
+    struct SalvageDrone {
+        std::string drone_id;
+        std::string wreck_target_id;
+        DroneState state = DroneState::Idle;
+        float cycle_time = 10.0f;        // seconds per salvage attempt
+        float cycle_progress = 0.0f;
+        float success_chance = 0.5f;     // 0.0–1.0
+        int successful_salvages = 0;
+    };
+
+    std::vector<SalvageDrone> drones;
+    int max_drones = 5;
+    int total_salvages = 0;
+    int total_failures = 0;
+    int total_deployed = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(SalvageDroneBay)
+};
+
+// ==================== Cargo Hold Management ====================
+
+/**
+ * @brief Cargo hold capacity and item tracking
+ *
+ * Manages a ship's cargo bay with per-item volume accounting.  Items
+ * stack by item_id.  Adding items that exceed remaining capacity is
+ * rejected.  Items can be jettisoned (removed and flagged for space
+ * loot spawning).
+ */
+class CargoHoldState : public ecs::Component {
+public:
+    struct CargoItem {
+        std::string item_id;
+        int quantity = 0;
+        float volume_per_unit = 1.0f;   // m³ per unit
+    };
+
+    std::vector<CargoItem> items;
+    int max_item_stacks = 50;
+    float max_volume = 500.0f;          // m³ total capacity
+    float used_volume = 0.0f;           // m³ currently used
+    int total_jettisoned = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(CargoHoldState)
+};
+
+/**
+ * @brief Skill training queue with SP accrual and level completion tracking
+ *
+ * Skills have 5 levels; SP required = base_sp_cost × level².  The front
+ * skill in the queue accrues SP each tick.  When complete, training moves
+ * to the next entry.  Supports pause/resume and a max queue size of 10.
+ */
+class SkillTrainingState : public ecs::Component {
+public:
+    struct SkillEntry {
+        std::string skill_id;
+        int target_level = 1;    // 1–5
+        int current_level = 0;
+        int base_sp_cost = 1000;
+        float accumulated_sp = 0.0f;
+        bool completed = false;
+    };
+
+    std::vector<SkillEntry> queue;
+    int max_queue_size = 10;
+    float sp_per_second = 10.0f;
+    int total_skills_completed = 0;
+    float total_sp_earned = 0.0f;
+    bool paused = false;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(SkillTrainingState)
+};
+
+/**
+ * @brief Ship loadout preset storage
+ *
+ * Stores named presets of module configurations for quick fitting swaps.
+ */
+class ShipLoadoutPresets : public ecs::Component {
+public:
+    struct LoadoutPreset {
+        struct ModuleSlot {
+            std::string module_name;
+            std::string slot;  // "high_1", "mid_2", "low_3", "rig_1", etc.
+        };
+
+        std::string preset_name;
+        std::string ship_type;
+        std::vector<ModuleSlot> modules;
+    };
+
+    std::vector<LoadoutPreset> presets;
+    int max_presets = 20;
+    int max_modules_per_preset = 16;
+    int total_presets_saved = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(ShipLoadoutPresets)
+};
+
+// ==================== Player Hangar Inventory ====================
+/**
+ * @brief Per-player per-station item storage.
+ *
+ * Tracks items deposited in a station hangar on behalf of a specific
+ * player.  Used by the dock → store → equip → undock gameplay loop.
+ */
+class PlayerHangarInventory : public ecs::Component {
+public:
+    struct HangarItem {
+        std::string item_id;
+        std::string item_name;
+        std::string item_type;
+        int         quantity        = 0;
+        double      volume_per_unit = 0.0;
+        double      estimated_value = 0.0;
+    };
+
+    std::string player_id;
+    std::string station_id;
+    double      max_volume          = 1000.0;
+    double      used_volume         = 0.0;
+    double      total_value_stored  = 0.0;
+    int         total_deposits      = 0;
+    int         total_withdrawals   = 0;
+    float       elapsed             = 0.0f;
+    bool        active              = true;
+
+    std::vector<HangarItem> items;
+
+    double remainingVolume() const { return max_volume - used_volume; }
+
+    COMPONENT_TYPE(PlayerHangarInventory)
+};
+
+class FleetCoordinationState : public ecs::Component {
+public:
+    struct Signal {
+        std::string signal_type;    // "rally", "retreat", "regroup", "hold", "advance"
+        std::string issuer_id;
+        float timestamp = 0.0f;
+        float duration = 30.0f;     // seconds signal remains active
+    };
+
+    std::vector<Signal> active_signals;
+    int max_signals = 10;
+    float broadcast_range = 100.0f;   // range in km
+    float signal_strength = 1.0f;     // 0.0-1.0, decays with distance
+    int total_broadcasts = 0;
+    int total_acknowledged = 0;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(FleetCoordinationState)
+};
+
+// ==================== Hull Class Capability Profile ====================
+
+/**
+ * @brief Defines per-hull-class capability slots and internal spaces
+ *
+ * Maps hull class to required bays, hangars, and support modules.
+ * Destroyer+ ships gain ship hangars, rover bays, grav bike bays,
+ * survival modules, and rig lockers. Scales with hull size.
+ */
+class HullClassCapabilityProfile : public ecs::Component {
+public:
+    std::string hull_class;             // "Frigate", "Destroyer", "Cruiser", etc.
+
+    // Bay counts (0 = not available for this hull class)
+    int rover_bay_count = 0;
+    int grav_bike_bay_count = 0;
+    int ship_hangar_count = 0;
+
+    // Bay size classes: "S", "M", "L", "XL" (empty = no bay)
+    std::string rover_bay_class;
+    std::string grav_bike_bay_class;
+    std::string ship_hangar_class;
+
+    // Required modules
+    bool has_survival_module = false;
+    bool has_rig_locker = false;         // Always present if rover_bay_count > 0
+
+    // Structural budgets
+    float max_power_grid = 100.0f;       // MW
+    float max_cpu = 200.0f;              // TF
+    int max_module_slots = 4;
+    float max_cargo_volume = 500.0f;     // m³
+
+    bool active = true;
+
+    COMPONENT_TYPE(HullClassCapabilityProfile)
+};
+
+// ==================== Meta Level State ====================
+
+/**
+ * @brief Module meta level categories for ship fitting
+ *
+ * Tracks modules fitted to a ship with their meta level classification:
+ * 0 = Tech I, 1-4 = Named variants, 5 = Tech II, 6+ = Faction/Deadspace/Officer.
+ * Each module entry carries stat, CPU, and powergrid multipliers that scale
+ * with meta level.  Supports upgrade tracking and drop-rate configuration
+ * for loot tables.
+ */
+class MetaLevelState : public ecs::Component {
+public:
+    struct ModuleEntry {
+        std::string module_id;
+        std::string base_item_type;
+        int meta_level = 0;                  // 0=T1, 1-4=Named, 5=T2, 6+=Faction+
+        float stat_multiplier = 1.0f;
+        float cpu_multiplier = 1.0f;
+        float powergrid_multiplier = 1.0f;
+        float drop_rate = 1.0f;              // 0.0-1.0
+    };
+
+    std::string fitting_id;
+    std::vector<ModuleEntry> modules;
+    int max_modules = 16;
+    float elapsed = 0.0f;
+    bool active = true;
+
+    COMPONENT_TYPE(MetaLevelState)
+};
+
+// ---------------------------------------------------------------------------
+// SlotGridState — 3-D grid of module slots on a ship hull
+// ---------------------------------------------------------------------------
+class SlotGridState : public ecs::Component {
+public:
+    enum ModuleSize { XS = 0, S, M, L, XL, XXL };
+
+    struct Slot {
+        std::string slot_id;
+        int         x = 0;
+        int         y = 0;
+        int         z = 0;
+        int         size = 0;
+        std::string module_type;
+        bool        occupied  = false;
+        std::string module_id;
+    };
+
+    std::vector<Slot> slots;
+    int         max_slots    = 50;
+    int         grid_width   = 10;
+    int         grid_height  = 10;
+    int         grid_depth   = 5;
+    std::string ship_class;
+    int         tier         = 1;
+    int         total_modules_placed = 0;
+    float       elapsed      = 0.0f;
+    bool        active       = true;
+
+    COMPONENT_TYPE(SlotGridState)
+};
+
+// ---------------------------------------------------------------------------
+// DensityFieldState — voxel density field for procedural hull shaping
+// ---------------------------------------------------------------------------
+class DensityFieldState : public ecs::Component {
+public:
+    struct Voxel {
+        int   x = 0;
+        int   y = 0;
+        int   z = 0;
+        float density = 0.0f;
+    };
+
+    std::vector<Voxel> voxels;
+    int   max_voxels    = 5000;
+    int   field_width   = 20;
+    int   field_height  = 20;
+    int   field_depth   = 10;
+    float iso_value     = 0.5f;
+    bool  symmetry_x    = true;
+    bool  symmetry_y    = false;
+    bool  symmetry_z    = false;
+    int   total_updates = 0;
+    float elapsed       = 0.0f;
+    bool  active        = true;
+
+    COMPONENT_TYPE(DensityFieldState)
+};
+
+// ---------------------------------------------------------------------------
+// ModuleCapabilityState — capabilities provided by installed ship modules
+// ---------------------------------------------------------------------------
+class ModuleCapabilityState : public ecs::Component {
+public:
+    struct Capability {
+        std::string capability_id;
+        std::string capability_type;
+        float       strength = 1.0f;
+        bool        enabled  = true;
+    };
+
+    struct InstalledModule {
+        std::string              module_id;
+        std::string              module_type;
+        int                      size = 0;
+        std::vector<Capability>  capabilities;
+    };
+
+    std::vector<InstalledModule> modules;
+    int   max_modules                  = 30;
+    int   total_capabilities_registered = 0;
+    float elapsed                      = 0.0f;
+    bool  active                       = true;
+
+    COMPONENT_TYPE(ModuleCapabilityState)
+};
+
+// ---------------------------------------------------------------------------
+// HangarState — ship hangar storage management
+// ---------------------------------------------------------------------------
+class HangarState : public ecs::Component {
+public:
+    struct HangarShip {
+        std::string ship_id;
+        std::string ship_type;
+        std::string ship_name;
+        bool        is_active    = false;
+        float       insurance    = 0.0f;
+    };
+
+    std::string station_id;
+    std::vector<HangarShip> ships;
+    int   max_ships               = 50;
+    int   total_ships_stored      = 0;
+    int   total_ships_retrieved   = 0;
+    float elapsed                 = 0.0f;
+    bool  active                  = true;
+
+    COMPONENT_TYPE(HangarState)
+};
+
+class FittingValidationState : public ecs::Component {
+public:
+    enum class SlotType { High, Medium, Low, Rig };
+
+    struct FittedModule {
+        std::string module_id;
+        std::string module_name;
+        SlotType    slot_type            = SlotType::High;
+        int         slot_index           = 0;
+        float       cpu_usage            = 0.0f;
+        float       powergrid_usage      = 0.0f;
+        int         meta_level           = 0;
+        std::string required_skill;
+        int         required_skill_level = 0;
+    };
+
+    std::vector<FittedModule> modules;
+    float total_cpu            = 0.0f;
+    float total_powergrid      = 0.0f;
+    int   high_slots           = 0;
+    int   medium_slots         = 0;
+    int   low_slots            = 0;
+    int   rig_slots            = 0;
+    int   calibration_total    = 400;
+    int   calibration_used     = 0;
+    std::string ship_type_id;
+    int   total_validations    = 0;
+    int   total_fits_applied   = 0;
+    int   total_modules_rejected = 0;
+    float elapsed              = 0.0f;
+    bool  active               = true;
+
+    COMPONENT_TYPE(FittingValidationState)
 };
 
 } // namespace components
