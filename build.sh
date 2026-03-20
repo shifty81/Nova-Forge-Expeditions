@@ -11,8 +11,10 @@
 #   ./build.sh [options] [targets...]
 #
 # Targets:
-#   server          Build AtlasServer
-#   client          Build AtlasClient
+#   server          Build AtlasServer (Atlas engine server wrapper)
+#   nova-server     Build atlas_dedicated_server (Nova Forge game server)
+#   client          Build AtlasClient (Atlas engine client wrapper)
+#   nova-client     Build atlas_client (Nova Forge OpenGL game client)
 #   release-client  Build AtlasClient without dev tools (diagnostics, rewriter)
 #   editor          Build AtlasEditor (developer client)
 #   runtime         Build AtlasRuntime
@@ -33,6 +35,7 @@
 # Examples:
 #   ./build.sh                           # Build all targets in Release mode
 #   ./build.sh server client             # Build server and client only
+#   ./build.sh nova-server nova-client   # Build Nova Forge game server and client
 #   ./build.sh -b Debug editor --test    # Build editor in Debug mode and run tests
 #   ./build.sh --clean all               # Clean rebuild of everything
 #   ./build.sh --run editor              # Build and run AtlasEditor
@@ -147,13 +150,15 @@ BUILD_TESTS=false
 for target in "${TARGETS[@]}"; do
     case "$target" in
         server)          CMAKE_TARGETS+=("AtlasServer") ;;
+        nova-server)     CMAKE_TARGETS+=("atlas_dedicated_server") ;;
         client)          CMAKE_TARGETS+=("AtlasClient") ;;
+        nova-client)     CMAKE_TARGETS+=("atlas_client") ;;
         release-client)  CMAKE_TARGETS+=("AtlasClient"); STRIP_TOOLS=true ;;
         editor)          CMAKE_TARGETS+=("AtlasEditor") ;;
         runtime)         CMAKE_TARGETS+=("AtlasRuntime") ;;
         engine)          CMAKE_TARGETS+=("AtlasEngine" "AtlasGameplay") ;;
         tests)           CMAKE_TARGETS+=("AtlasTests"); BUILD_TESTS=true; RUN_TESTS=true ;;
-        all)             CMAKE_TARGETS=("AtlasServer" "AtlasClient" "AtlasEditor" "AtlasRuntime"); BUILD_TESTS=false ;;
+        all)             CMAKE_TARGETS=("AtlasServer" "AtlasClient" "AtlasEditor" "AtlasRuntime" "atlas_dedicated_server" "atlas_client"); BUILD_TESTS=false ;;
         *)               error "Unknown target: $target"; exit 1 ;;
     esac
 done
@@ -389,7 +394,7 @@ if [ "$RUN_TESTS" = true ]; then
     echo ""
     info "Running tests..."
     set +e
-    test_output=$("$BUILD_DIR/tests/AtlasTests" 2>&1)
+    test_output=$("$BUILD_DIR/bin/AtlasTests" 2>&1)
     test_exit=$?
     set -e
     echo "$test_output" | while IFS= read -r line; do echo "  $line"; done
@@ -417,24 +422,26 @@ echo ""
 info "Staging executables to $OUTPUT_DIR..."
 mkdir -p "$OUTPUT_DIR"
 
-# Map of CMake target name -> subdirectory and binary name
-declare -A TARGET_PATHS=(
-    ["AtlasServer"]="server/AtlasServer"
-    ["AtlasClient"]="client/AtlasClient"
-    ["AtlasEditor"]="editor/AtlasEditor"
-    ["AtlasRuntime"]="runtime/AtlasRuntime"
+# All CMake targets output to CMAKE_RUNTIME_OUTPUT_DIRECTORY = build/bin/
+# Map both Atlas wrapper names and Nova Forge game binary names
+declare -A TARGET_BINARIES=(
+    ["AtlasServer"]="AtlasServer"
+    ["AtlasClient"]="AtlasClient"
+    ["AtlasEditor"]="AtlasEditor"
+    ["AtlasRuntime"]="AtlasRuntime"
+    ["atlas_dedicated_server"]="atlas_dedicated_server"
+    ["atlas_client"]="atlas_client"
 )
 
 copied=0
 for target in "${CMAKE_TARGETS[@]}"; do
-    rel="${TARGET_PATHS[$target]:-}"
-    if [ -z "$rel" ]; then
+    binary_name="${TARGET_BINARIES[$target]:-}"
+    if [ -z "$binary_name" ]; then
         continue
     fi
-    src="$BUILD_DIR/$rel"
+    src="$BUILD_DIR/bin/$binary_name"
     if [ -f "$src" ]; then
         cp "$src" "$OUTPUT_DIR/"
-        binary_name=$(basename "$src")
         ok "  $binary_name → $OUTPUT_DIR/$binary_name"
         copied=$((copied + 1))
     fi
@@ -457,29 +464,31 @@ echo ""
 
 # --- Run target ---
 if [ -n "$RUN_TARGET" ]; then
-    # Map short name to binary name
+    # Map short name to binary name (all land in build/bin/)
     declare -A RUN_BINARY_MAP=(
         ["server"]="AtlasServer"
+        ["nova-server"]="atlas_dedicated_server"
         ["client"]="AtlasClient"
+        ["nova-client"]="atlas_client"
         ["editor"]="AtlasEditor"
         ["runtime"]="AtlasRuntime"
     )
     binary_name="${RUN_BINARY_MAP[$RUN_TARGET]:-}"
     if [ -z "$binary_name" ]; then
-        error "Cannot run target '$RUN_TARGET'. Valid targets: server, client, editor, runtime"
+        error "Cannot run target '$RUN_TARGET'. Valid targets: server, nova-server, client, nova-client, editor, runtime"
         exit 1
     fi
 
-    # Try dist/ first, then build subdirectory
+    # Try dist/ first, then build/bin/
     run_path=""
     if [ -f "$OUTPUT_DIR/$binary_name" ]; then
         run_path="$OUTPUT_DIR/$binary_name"
-    elif [ -f "$BUILD_DIR/$RUN_TARGET/$binary_name" ]; then
-        run_path="$BUILD_DIR/$RUN_TARGET/$binary_name"
+    elif [ -f "$BUILD_DIR/bin/$binary_name" ]; then
+        run_path="$BUILD_DIR/bin/$binary_name"
     fi
 
     if [ -z "$run_path" ]; then
-        error "Executable '$binary_name' not found in $OUTPUT_DIR/ or $BUILD_DIR/$RUN_TARGET/"
+        error "Executable '$binary_name' not found in $OUTPUT_DIR/ or $BUILD_DIR/bin/"
         exit 1
     fi
 

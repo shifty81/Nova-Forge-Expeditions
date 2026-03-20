@@ -34,6 +34,11 @@ add_executable(AtlasTests
     test_tile.cpp
     test_sound.cpp
     test_ui_screen.cpp
+    test_atlas_ui.cpp
+    test_editor_tools.cpp
+    test_pcg_framework.cpp
+    test_procedural_pipeline.cpp
+    test_rendering_pipeline.cpp
     test_flow.cpp
     test_flow_ir.cpp
     test_flow_codegen.cpp

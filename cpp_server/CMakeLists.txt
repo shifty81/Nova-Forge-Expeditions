@@ -592,6 +592,11 @@ target_link_libraries(atlas_dedicated_server
     ZLIB::ZLIB
 )
 
+# Link NovaForge shared common library (provides shared types used by both client and server)
+if(TARGET novaforge_common)
+    target_link_libraries(atlas_dedicated_server novaforge_common)
+endif()
+
 # Link Atlas Engine if available
 if(TARGET AtlasEngine)
     target_link_libraries(atlas_dedicated_server AtlasEngine)
