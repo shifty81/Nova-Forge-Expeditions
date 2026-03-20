@@ -282,6 +282,8 @@ AtlasForge has older stubs; Atlas-NovaForge has fully wired `IGameModule` implem
 **Issue**: `cpp_common/` exists but the root `CMakeLists.txt` doesn't reference it.  
 **Resolution needed**: Add `add_subdirectory(cpp_common)` to root CMakeLists and link `novaforge_common` into both `cpp_client` and `cpp_server`.
 
+**✅ Resolved**: `add_subdirectory(cpp_common)` already present in root CMakeLists.txt. `novaforge_common` is now conditionally linked into both `atlas_dedicated_server` (cpp_server) and `atlas_client` (cpp_client). cpp_common CMake updated to C++20.
+
 ---
 
 ### 6. `tests/` vs `atlas_tests/` Test Suite Split
@@ -289,6 +291,8 @@ AtlasForge has older stubs; Atlas-NovaForge has fully wired `IGameModule` implem
 **Issue**: Two separate test directories exist — `tests/` (legacy + AtlasForge-specific) and `atlas_tests/` (newer Atlas Engine suite). The root `CMakeLists.txt` already has conditional logic for this but it needs review for the new test files added from AtlasForge.
 
 **Resolution needed**: Register the 5 new AtlasForge test files (`test_atlas_ui`, `test_editor_tools`, `test_pcg_framework`, `test_procedural_pipeline`, `test_rendering_pipeline`) in `tests/CMakeLists.txt`.
+
+**✅ Resolved**: All 5 test files now registered in `tests/CMakeLists.txt`.
 
 ---
 
