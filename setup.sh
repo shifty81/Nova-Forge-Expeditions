@@ -301,7 +301,7 @@ echo ""
 # ──────────────────────────────────────
 if [ "$SKIP_TESTS" = false ]; then
     info "Step 5/5: Running tests..."
-    TEST_BIN="$BUILD_DIR/tests/AtlasTests"
+    TEST_BIN="$BUILD_DIR/bin/AtlasTests"
     if [ -f "$TEST_BIN" ]; then
         set +e
         test_output=$("$TEST_BIN" 2>&1)

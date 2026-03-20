@@ -40,13 +40,16 @@ usage() {
     echo ""
     echo "Targets:"
     echo "  editor              Launch AtlasEditor"
-    echo "  server              Launch AtlasServer"
-    echo "  client              Launch AtlasClient"
+    echo "  server              Launch AtlasServer (Atlas engine server wrapper)"
+    echo "  nova-server         Launch atlas_dedicated_server (Nova Forge game server)"
+    echo "  client              Launch AtlasClient (Atlas engine client wrapper)"
+    echo "  nova-client         Launch atlas_client (Nova Forge OpenGL game client)"
     echo "  runtime [args...]   Launch AtlasRuntime with optional arguments"
     echo "  test                Build and run tests"
     echo ""
     echo "Examples:"
     echo "  ./run.sh editor"
+    echo "  ./run.sh nova-server"
     echo "  ./run.sh runtime --project projects/atlas-sample/sample.atlas"
     echo "  ./run.sh test"
     exit 0
@@ -59,18 +62,23 @@ fi
 TARGET="$1"
 shift
 
-# Map target names to binary names and build subdirectories
+# Map target names to binary names (all land in build/bin/)
 declare -A BINARY_MAP=(
     ["editor"]="AtlasEditor"
     ["server"]="AtlasServer"
+    ["nova-server"]="atlas_dedicated_server"
     ["client"]="AtlasClient"
+    ["nova-client"]="atlas_client"
     ["runtime"]="AtlasRuntime"
 )
 
-declare -A BUILD_SUBDIR_MAP=(
+# Map target names to build.sh target names (for auto-build)
+declare -A BUILD_TARGET_MAP=(
     ["editor"]="editor"
     ["server"]="server"
+    ["nova-server"]="nova-server"
     ["client"]="client"
+    ["nova-client"]="nova-client"
     ["runtime"]="runtime"
 )
 
@@ -84,16 +92,16 @@ fi
 binary_name="${BINARY_MAP[$TARGET]:-}"
 if [ -z "$binary_name" ]; then
     error "Unknown target: $TARGET"
-    echo "Valid targets: editor, server, client, runtime, test"
+    echo "Valid targets: editor, server, nova-server, client, nova-client, runtime, test"
     exit 1
 fi
 
-# Find the executable — check dist/ first, then build subdirectory
+# Find the executable — check dist/ first, then build/bin/ (unified output dir)
 find_executable() {
     if [ -f "$DIST_DIR/$binary_name" ]; then
         echo "$DIST_DIR/$binary_name"
-    elif [ -f "$BUILD_DIR/${BUILD_SUBDIR_MAP[$TARGET]}/$binary_name" ]; then
-        echo "$BUILD_DIR/${BUILD_SUBDIR_MAP[$TARGET]}/$binary_name"
+    elif [ -f "$BUILD_DIR/bin/$binary_name" ]; then
+        echo "$BUILD_DIR/bin/$binary_name"
     fi
 }
 
@@ -101,8 +109,9 @@ executable="$(find_executable)"
 
 # If not found, build first
 if [ -z "$executable" ]; then
+    build_target="${BUILD_TARGET_MAP[$TARGET]:-$TARGET}"
     warn "$binary_name not found — building first..."
-    "$SCRIPT_DIR/build.sh" "$TARGET"
+    "$SCRIPT_DIR/build.sh" "$build_target"
     executable="$(find_executable)"
 fi
 
